@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap');
+
+        :root {
+            --cyan: #00f3ff;
+            --cyan-dim: rgba(0, 243, 255, 0.2);
+            --bg: rgba(0, 10, 20, 0.85);
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Rajdhani', sans-serif;
+            color: white;
+            background: transparent;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #hud-container {
+            width: 400px;
+            border: 1px solid var(--cyan);
+            background: var(--bg);
+            padding: 20px;
+            box-shadow: 0 0 20px var(--cyan-dim);
+            transform: perspective(1000px) rotateY(-15deg);
+            opacity: 0;
+            transition: all 0.5s ease;
+            position: relative;
+        }
+
+        #hud-container.visible {
+            opacity: 1;
+            transform: perspective(1000px) rotateY(0deg);
+        }
+
+        .header {
+            border-bottom: 2px solid var(--cyan);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-family: 'Orbitron', sans-serif;
+            color: var(--cyan);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--cyan);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+
+        .content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2rem;
+        }
+
+        .label { color: rgba(255,255,255,0.6); text-transform: uppercase; font-size: 0.9rem; }
+        .value { color: white; font-weight: 700; }
+        .price { color: #ffae00; font-family: 'Orbitron', sans-serif; }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: var(--cyan-dim);
+            text-align: right;
+            text-transform: uppercase;
+        }
+
+        #mining-yield { display: none; }
+        #item-card { display: none; }
+
+    </style>
+</head>
+<body>
+    <div id="hud-container">
+        <!-- Item Card Template -->
+        <div id="item-card">
+            <div class="header">
+                <h1 id="item-name">Atlas Q-Drive</h1>
+                <div class="status-dot"></div>
+            </div>
+            <div class="content">
+                <div class="item-row">
+                    <span class="label">Location</span>
+                    <span class="value" id="item-loc">HUR-L5</span>
+                </div>
+                <div class="item-row">
+                    <span class="label">Price</span>
+                    <span class="value price" id="item-price">17,900 aUEC</span>
+                </div>
+                <div class="item-row">
+                    <span class="label">Type</span>
+                    <span class="value" id="item-type">Grade A / Size 1</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mining Yield Template -->
+        <div id="mining-yield">
+            <div class="header">
+                <h1>Analysis Result</h1>
+                <div class="status-dot" style="background: #ffae00; box-shadow: 0 0 10px #ffae00;"></div>
+            </div>
+            <div class="content">
+                <div class="item-row">
+                    <span class="label">Est. Value</span>
+                    <span class="value price" id="yield-value">240,000 aUEC</span>
+                </div>
+                <div class="item-row">
+                    <span class="label">Recommendation</span>
+                    <span class="value" id="yield-rec" style="color: #00ff00;">EXTRACT</span>
+                </div>
+                <div class="item-row">
+                    <span class="label">Best Refinery</span>
+                    <span class="value" id="yield-ref">ARC-L1</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">Komandio Co-Pilot // Stanton System</div>
+    </div>
+
+    <script>
+        const container = document.getElementById('hud-container');
+        const itemCard = document.getElementById('item-card');
+        const miningYield = document.getElementById('mining-yield');
+
+        function handleUpdate(data) {
+            const { command, payload } = data;
+
+            if (command === 'SHOW_ITEM') {
+                itemCard.style.display = 'block';
+                miningYield.style.display = 'none';
+                
+                document.getElementById('item-name').textContent = payload.item;
+                document.getElementById('item-loc').textContent = payload.location;
+                document.getElementById('item-price').textContent = (payload.price || 0).toLocaleString() + ' aUEC';
+                document.getElementById('item-type').textContent = payload.region || 'Unknown';
+                
+                container.classList.add('visible');
+            }
+
+            if (command === 'SHOW_YIELD') {
+                itemCard.style.display = 'none';
+                miningYield.style.display = 'block';
+                
+                document.getElementById('yield-value').textContent = (payload.estimated_value || 0).toLocaleString() + ' aUEC';
+                document.getElementById('yield-rec').textContent = payload.recommendation;
+                document.getElementById('yield-ref').textContent = payload.refinery;
+                
+                container.classList.add('visible');
+            }
+
+            if (command === 'HIDE') {
+                container.classList.remove('visible');
+            }
+        }
+
+        // WebView2 Messaging
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.addEventListener('message', (event) => {
+                handleUpdate(event.data);
+            });
+        } else {
+            // Fallback for standard browsers
+            window.addEventListener('message', (event) => {
+                handleUpdate(event.data);
+            });
+        }
+    </script>
+</body>
+</html>

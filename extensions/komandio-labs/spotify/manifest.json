@@ -1,0 +1,178 @@
+{
+  "schemaVersion": "1.0",
+  "publisher": {
+    "id": "komandio-labs",
+    "type": "official",
+    "displayName": "Komandio Labs"
+  },
+  "id": "spotify",
+  "name": "Spotify Player",
+  "version": "1.0.0",
+  "description": "Pure HTML/JS Spotify Player with background service and Voice Controls.",
+  "icon": "MusicNote224",
+  "supportedGames": [
+    "Any"
+  ],
+  "category": "media",
+  "permissions": [
+    "network:api.spotify.com",
+    "network:accounts.spotify.com",
+    "network:sdk.scdn.co",
+    "network:spotify.com",
+    "network:i.scdn.co",
+    "tts",
+    "overlay",
+    "open_browser",
+    "secure_storage",
+    "execute_command"
+  ],
+  "commands": [
+    {
+      "id": "spotify-pause",
+      "category": "Media",
+      "description": "Pause Spotify Music",
+      "triggers": [
+        {
+          "type": "Voice",
+          "phrases": [
+            "spotify pause",
+            "pause spotify"
+          ]
+        },
+        {
+          "type": "Intent"
+        }
+      ],
+      "action": {
+        "type": "Overlay",
+        "behavior": "None",
+        "target": "komandio-labs.spotify/overlay/player",
+        "command": "Pause",
+        "executionMode": "Synchronous"
+      },
+      "feedbackPhrases": [
+        "Spotify paused."
+      ],
+      "isEnabled": true
+    },
+    {
+      "id": "spotify-resume",
+      "category": "Media",
+      "description": "Resume Spotify Music",
+      "triggers": [
+        {
+          "type": "Voice",
+          "phrases": [
+            "spotify resume",
+            "spotify play",
+            "resume spotify",
+            "play spotify"
+          ]
+        },
+        {
+          "type": "Intent"
+        }
+      ],
+      "action": {
+        "type": "Overlay",
+        "behavior": "None",
+        "target": "komandio-labs.spotify/overlay/player",
+        "command": "Play",
+        "executionMode": "Synchronous"
+      },
+      "feedbackPhrases": [
+        "Spotify resumed."
+      ],
+      "IsEnabled": true
+    },
+    {
+      "id": "spotify-stop",
+      "category": "Media",
+      "description": "Stop Spotify Player",
+      "triggers": [
+        {
+          "type": "Voice",
+          "phrases": [
+            "spotify stop",
+            "stop spotify"
+          ]
+        },
+        {
+          "type": "Intent"
+        }
+      ],
+      "action": {
+        "type": "Overlay",
+        "behavior": "Close",
+        "target": "komandio-labs.spotify/overlay/player",
+        "executionMode": "Synchronous"
+      },
+      "feedbackPhrases": [
+        "Stopping Spotify."
+      ],
+      "isEnabled": true
+    }
+  ],
+  "setup": {
+    "sections": [
+      {
+        "name": "Account",
+        "fields": [
+          {
+            "id": "btn_login",
+            "type": "button",
+            "label": "Connect Spotify",
+            "action": "LOGIN",
+            "description": "Log in to your Spotify account to enable playback control."
+          }
+        ]
+      },
+      {
+        "name": "Playback",
+        "fields": [
+          {
+            "id": "spotifyTarget",
+            "type": "select",
+            "label": "Default Playback Target",
+            "default": "active",
+            "description": "Choose where to route music when you ask the AI to play something.",
+            "options": [
+              "active",
+              "overlay",
+              "ask",
+              "browser",
+              "desktop"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "entry": {
+    "skill": "skill/index.ts",
+    "service": "service/index.ts",
+    "overlays": [
+      {
+        "id": "player",
+        "name": "Spotify Player",
+        "path": "overlays/player/index.html",
+        "transparent": true,
+        "clickThrough": false
+      }
+    ]
+  },
+  "skill": {
+    "tags": [
+      "media",
+      "music",
+      "spotify",
+      "songs",
+      "tracks",
+      "albums"
+    ],
+    "category": "media",
+    "supportedGames": [
+      "Any"
+    ]
+  }
+}

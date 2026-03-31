@@ -1,0 +1,220 @@
+{
+  "schemaVersion": "1.0",
+  "publisher": {
+    "id": "komandio-labs",
+    "type": "official",
+    "displayName": "Komandio Labs"
+  },
+  "id": "youtube",
+  "name": "YouTube Player",
+  "version": "1.0.0",
+  "description": "Pure HTML/JS YouTube Player Overlay with Voice Controls.",
+  "icon": "Video24",
+  "supportedGames": [
+    "Any"
+  ],
+  "category": "media",
+  "permissions": [
+    "network:www.youtube.com",
+    "network:www.youtube-nocookie.com",
+    "network:i.ytimg.com",
+    "tts",
+    "overlay",
+    "execute_command"
+  ],
+  "commands": [
+    {
+      "id": "youtube-pause",
+      "category": "Media",
+      "description": "Pause YouTube Video",
+      "triggers": [
+        {
+          "type": "Voice",
+          "phrases": [
+            "youtube pause",
+            "pause youtube"
+          ]
+        },
+        {
+          "type": "Intent"
+        }
+      ],
+      "action": {
+        "type": "Overlay",
+        "behavior": "None",
+        "target": "komandio-labs.youtube/overlay/player",
+        "command": "Pause",
+        "executionMode": "Synchronous"
+      },
+      "feedbackPhrases": [
+        "YouTube paused."
+      ],
+      "isEnabled": true
+    },
+    {
+      "id": "youtube-resume",
+      "category": "Media",
+      "description": "Resume YouTube Video",
+      "triggers": [
+        {
+          "type": "Voice",
+          "phrases": [
+            "youtube resume",
+            "youtube play",
+            "resume youtube",
+            "play youtube"
+          ]
+        },
+        {
+          "type": "Intent"
+        }
+      ],
+      "action": {
+        "type": "Overlay",
+        "behavior": "None",
+        "target": "komandio-labs.youtube/overlay/player",
+        "command": "Play",
+        "executionMode": "Synchronous"
+      },
+      "feedbackPhrases": [
+        "YouTube resumed."
+      ],
+      "isEnabled": true
+    },
+    {
+      "id": "youtube-next",
+      "category": "Media",
+      "description": "Next YouTube Video",
+      "triggers": [
+        {
+          "type": "Voice",
+          "phrases": [
+            "youtube next",
+            "next youtube",
+            "youtube next video",
+            "next youtube video"
+          ]
+        },
+        {
+          "type": "Intent"
+        }
+      ],
+      "action": {
+        "type": "Overlay",
+        "behavior": "None",
+        "target": "komandio-labs.youtube/overlay/player",
+        "command": "Next",
+        "executionMode": "Synchronous"
+      },
+      "feedbackPhrases": [
+        "YouTube next video."
+      ],
+      "isEnabled": true
+    },
+    {
+      "id": "youtube-previous",
+      "category": "Media",
+      "description": "Previous YouTube Video",
+      "triggers": [
+        {
+          "type": "Voice",
+          "phrases": [
+            "youtube previous",
+            "previous youtube",
+            "youtube previous video",
+            "previous youtube video"
+          ]
+        },
+        {
+          "type": "Intent"
+        }
+      ],
+      "action": {
+        "type": "Overlay",
+        "behavior": "None",
+        "target": "komandio-labs.youtube/overlay/player",
+        "command": "Prev",
+        "executionMode": "Synchronous"
+      },
+      "feedbackPhrases": [
+        "YouTube previous video."
+      ],
+      "IsEnabled": true
+    },
+    {
+      "id": "youtube-stop",
+      "category": "Media",
+      "description": "Stop & Close YouTube Player",
+      "triggers": [
+        {
+          "type": "Voice",
+          "phrases": [
+            "youtube stop",
+            "stop youtube"
+          ]
+        },
+        {
+          "type": "Intent"
+        }
+      ],
+      "action": {
+        "type": "Overlay",
+        "behavior": "Close",
+        "target": "komandio-labs.youtube/overlay/player",
+        "executionMode": "Synchronous"
+      },
+      "feedbackPhrases": [
+        "YouTube video closed."
+      ],
+      "isEnabled": true
+    }
+  ],
+  "setup": {
+    "sections": [
+      {
+        "name": "Playback",
+        "fields": [
+          {
+            "id": "youtubeTarget",
+            "type": "select",
+            "label": "Default Playback Target",
+            "default": "overlay",
+            "description": "Choose where to open YouTube videos.",
+            "options": [
+              "overlay",
+              "browser",
+              "ask"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "entry": {
+    "skill": "skill/index.ts",
+    "overlays": [
+      {
+        "id": "player",
+        "name": "YouTube Player",
+        "path": "overlays/player/index.html",
+        "transparent": true,
+        "clickThrough": false
+      }
+    ]
+  },
+  "skill": {
+    "tags": [
+      "media",
+      "video",
+      "youtube",
+      "watch",
+      "visual"
+    ],
+    "category": "media",
+    "supportedGames": [
+      "Any"
+    ]
+  }
+}
+
+

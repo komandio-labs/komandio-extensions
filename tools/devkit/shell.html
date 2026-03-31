@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Komandio Overlay DevKit</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --border:   #30363d;
+      --accent:   #58a6ff;
+      --green:    #3fb950;
+      --red:      #f85149;
+      --yellow:   #d29922;
+      --muted:    #8b949e;
+      --text:     #e6edf3;
+      --font:     -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
+
+    /* ── Layout ── */
+
+    #layout {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #overlay-pane {
+      flex: 1 1 auto;
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      min-width: 0;
+    }
+
+    #overlay-pane header {
+      padding: 8px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #overlay-pane header span.dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    #overlay-pane header span.dot.ready { background: var(--green); }
+
+    #overlay-iframe {
+      flex: 1 1 auto;
+      border: none;
+      width: 100%;
+      background: transparent;
+    }
+
+    #panel {
+      width: 360px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    /* ── Panel header ── */
+
+    #panel > header {
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    /* ── Sections ── */
+
+    .section {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+    }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    /* ── Scenarios ── */
+
+    #scenario-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .scenario-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 10px;
+      text-align: left;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 12px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .scenario-btn:hover { border-color: var(--accent); }
+    .scenario-btn.active { border-color: var(--accent); background: rgba(88,166,255,0.08); color: var(--accent); }
+
+    .scenario-desc {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    #no-scenarios { font-size: 12px; color: var(--muted); font-style: italic; }
+
+    /* ── Event injector ── */
+
+    .field-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .field-group { margin-bottom: 8px; }
+
+    input[type="text"], textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      resize: vertical;
+    }
+
+    input[type="text"]:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    button.inject-btn {
+      background: var(--accent);
+      color: #0d1117;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12px;
+      transition: opacity 0.15s;
+    }
+
+    button.inject-btn:hover { opacity: 0.85; }
+    button.inject-btn:disabled { opacity: 0.4; cursor: default; }
+
+    #inject-error {
+      font-size: 11px;
+      color: var(--red);
+      margin-top: 4px;
+      min-height: 16px;
+    }
+
+    /* ── Log ── */
+
+    #log-section {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 0;
+    }
+
+    #log-header {
+      padding: 10px 12px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #log-clear {
+      font-size: 11px;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    #log-clear:hover { background: var(--border); color: var(--text); }
+
+    #log {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 0 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .log-entry {
+      display: flex;
+      gap: 6px;
+      padding: 3px 6px;
+      border-radius: 3px;
+      align-items: flex-start;
+      font-family: monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      background: var(--bg);
+      border-left: 2px solid var(--border);
+    }
+
+    .log-entry.out  { border-left-color: var(--yellow); }
+    .log-entry.in   { border-left-color: var(--green); }
+    .log-entry.info { border-left-color: var(--accent); }
+    .log-entry.error{ border-left-color: var(--red); }
+
+    .log-dir {
+      flex-shrink: 0;
+      width: 26px;
+      font-weight: 700;
+      font-size: 10px;
+      padding-top: 1px;
+    }
+
+    .out  .log-dir { color: var(--yellow); }
+    .in   .log-dir { color: var(--green); }
+    .info .log-dir { color: var(--accent); }
+    .error .log-dir { color: var(--red); }
+
+    .log-body {
+      flex: 1 1 auto;
+      word-break: break-all;
+      white-space: pre-wrap;
+      color: var(--muted);
+    }
+
+    .log-time {
+      flex-shrink: 0;
+      font-size: 10px;
+      color: #484f58;
+      padding-top: 1px;
+    }
+
+    #log:empty::after {
+      content: "No messages yet";
+      color: var(--muted);
+      font-style: italic;
+      font-size: 12px;
+      padding: 6px;
+    }
+  </style>
+</head>
+<body>
+<div id="layout">
+
+  <!-- ── Overlay pane ── -->
+  <div id="overlay-pane">
+    <header>
+      <span class="dot" id="bridge-dot"></span>
+      <span id="overlay-label">Loading overlay…</span>
+    </header>
+    <iframe id="overlay-iframe" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+  </div>
+
+  <!-- ── DevKit panel ── -->
+  <div id="panel">
+    <header>Overlay DevKit</header>
+
+    <!-- Scenarios -->
+    <div class="section">
+      <div class="section-title">Scenarios</div>
+      <div id="scenario-list">
+        <div id="no-scenarios">No scenarios defined in overlay.mock.json</div>
+      </div>
+    </div>
+
+    <!-- Event injector -->
+    <div class="section">
+      <div class="section-title">Inject Event</div>
+      <div class="field-group">
+        <div class="field-label">Command</div>
+        <input type="text" id="inject-command" placeholder="e.g. SHOW_ITEM" />
+      </div>
+      <div class="field-group">
+        <div class="field-label">Payload (JSON)</div>
+        <textarea id="inject-payload" rows="4" placeholder='{"key": "value"}'></textarea>
+      </div>
+      <button class="inject-btn" id="inject-btn">Inject</button>
+      <div id="inject-error"></div>
+    </div>
+
+    <!-- Log -->
+    <div id="log-section">
+      <div id="log-header">
+        <span class="section-title" style="margin:0">Message Log</span>
+        <button id="log-clear">Clear</button>
+      </div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  'use strict';
+
+  // ── State ────────────────────────────────────────────────────────────────
+
+  let config = { scenarios: [], serviceResponses: {} };
+  let activeScenario = null;
+  const iframe = document.getElementById('overlay-iframe');
+  const log = document.getElementById('log');
+  const bridgeDot = document.getElementById('bridge-dot');
+  const overlayLabel = document.getElementById('overlay-label');
+
+  // ── Config loading ────────────────────────────────────────────────────────
+
+  async function loadConfig() {
+    try {
+      const res = await fetch('/__devkit/mock-config.json');
+      if (res.ok) config = await res.json();
+    } catch (_) {}
+    renderScenarios();
+  }
+
+  // ── Scenarios ─────────────────────────────────────────────────────────────
+
+  function renderScenarios() {
+    const list = document.getElementById('scenario-list');
+    const noMsg = document.getElementById('no-scenarios');
+
+    if (!config.scenarios || config.scenarios.length === 0) {
+      noMsg.style.display = '';
+      return;
+    }
+    noMsg.style.display = 'none';
+
+    // Remove all scenario buttons first
+    list.querySelectorAll('.scenario-btn').forEach(el => el.remove());
+
+    config.scenarios.forEach((sc, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'scenario-btn';
+      btn.dataset.idx = idx;
+      btn.textContent = sc.name;
+      if (sc.description) {
+        const desc = document.createElement('div');
+        desc.className = 'scenario-desc';
+        desc.textContent = sc.description;
+        btn.appendChild(desc);
+      }
+      btn.addEventListener('click', () => applyScenario(sc, btn));
+      list.appendChild(btn);
+    });
+  }
+
+  function applyScenario(sc, btn) {
+    // Toggle active style
+    document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+    if (activeScenario === sc) {
+      activeScenario = null;
+      sendToOverlay({ type: '__devkit_apply_scenario', scenario: null });
+      addLog('info', 'Scenario cleared');
+      return;
+    }
+    btn.classList.add('active');
+    activeScenario = sc;
+
+    // Push combined scenario config (global + override)
+    const merged = { ...sc, serviceResponses: { ...config.serviceResponses, ...(sc.serviceResponses ?? {}) } };
+    sendToOverlay({ type: '__devkit_apply_scenario', scenario: merged });
+    addLog('info', `Scenario: ${sc.name}`);
+
+    // Auto-fire scenario events
+    if (sc.events && sc.events.length > 0) {
+      sc.events.forEach((ev, i) => {
+        setTimeout(() => {
+          sendToOverlay({ type: '__devkit_inject_event', command: ev.command, payload: ev.payload ?? {} });
+        }, (ev.__delay ?? 0) + i * 10);
+      });
+    }
+  }
+
+  // ── Event injector ────────────────────────────────────────────────────────
+
+  document.getElementById('inject-btn').addEventListener('click', () => {
+    const cmdEl = document.getElementById('inject-command');
+    const payloadEl = document.getElementById('inject-payload');
+    const errEl = document.getElementById('inject-error');
+
+    errEl.textContent = '';
+    const command = cmdEl.value.trim();
+    if (!command) { errEl.textContent = 'Command is required'; return; }
+
+    let payload = {};
+    const raw = payloadEl.value.trim();
+    if (raw) {
+      try { payload = JSON.parse(raw); } catch (e) { errEl.textContent = `Invalid JSON: ${e.message}`; return; }
+    }
+
+    sendToOverlay({ type: '__devkit_inject_event', command, payload });
+  });
+
+  // ── Sending to overlay ────────────────────────────────────────────────────
+
+  function sendToOverlay(msg) {
+    iframe.contentWindow?.postMessage(msg, '*');
+  }
+
+  // ── Messages from iframe ──────────────────────────────────────────────────
+
+  window.addEventListener('message', (event) => {
+    if (event.source !== iframe.contentWindow) return;
+    const msg = event.data;
+    if (!msg || !msg.type) return;
+
+    if (msg.type === '__devkit_bridge_ready') {
+      // Push config to bridge
+      sendToOverlay({ type: '__devkit_set_config', config });
+      bridgeDot.classList.add('ready');
+      overlayLabel.textContent = document.title.replace('Komandio Overlay DevKit', '').trim() || 'Overlay';
+      return;
+    }
+
+    if (msg.type === '__devkit_ready') {
+      addLog('info', 'Overlay reported READY');
+      return;
+    }
+
+    if (msg.type === '__devkit_log') {
+      addLog(msg.direction, msg.data);
+      return;
+    }
+  });
+
+  // ── Log ───────────────────────────────────────────────────────────────────
+
+  function addLog(direction, data) {
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${direction}`;
+
+    const dirSpan = document.createElement('span');
+    dirSpan.className = 'log-dir';
+    dirSpan.textContent = direction === 'out' ? '▲ OUT' : direction === 'in' ? '▼ IN' : direction === 'error' ? '✖ ERR' : '● INF';
+    entry.appendChild(dirSpan);
+
+    const body = document.createElement('span');
+    body.className = 'log-body';
+
+    if (typeof data === 'string') {
+      body.textContent = data;
+    } else if (data && data.message) {
+      body.textContent = data.message;
+    } else {
+      try { body.textContent = JSON.stringify(data, null, 2); } catch (_) { body.textContent = String(data); }
+    }
+    entry.appendChild(body);
+
+    const time = document.createElement('span');
+    time.className = 'log-time';
+    time.textContent = new Date().toLocaleTimeString('en-GB', { hour12: false });
+    entry.appendChild(time);
+
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  document.getElementById('log-clear').addEventListener('click', () => { log.innerHTML = ''; });
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+
+  async function init() {
+    await loadConfig();
+
+    // Derive overlay URL from query string ?overlay=<path>
+    const params = new URLSearchParams(window.location.search);
+    const overlayPath = params.get('overlay') || 'index.html';
+    const overlayUrl = `/overlay/${overlayPath}`;
+
+    overlayLabel.textContent = overlayPath;
+    iframe.src = overlayUrl;
+
+    document.title = `DevKit — ${overlayPath}`;
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Player Control</title>
+    <style>
+        :root {
+            --spotify-green: #1DB954;
+            --spotify-black: #191414;
+            --spotify-dark-gray: #282828;
+            --spotify-light-gray: #b3b3b3;
+            --bg-color: #121212;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: transparent;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .overlay-container {
+            background-color: var(--bg-color);
+            padding: 0 16px;
+            border-radius: 12px;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #album-art {
+            width: 48px;
+            height: 48px;
+            border-radius: 4px;
+            object-fit: cover;
+            margin-right: 12px;
+            flex-shrink: 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+
+        #album-art.spotify-logo {
+            border-radius: 50%;
+            width: 52px;
+            height: 52px;
+        }
+
+        .track-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            margin-right: 16px;
+        }
+
+        #track-name {
+            font-size: 14px;
+            font-weight: 700;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        #artist-name {
+            font-size: 12px;
+            color: var(--spotify-light-gray);
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+
+        #track-name > span, #artist-name > span {
+            display: inline-block;
+        }
+
+        /* Controls Section */
+        .actions-section {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 8px;
+        }
+
+        .playback-controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .control-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            opacity: 0.7;
+        }
+
+        .control-btn:hover {
+            opacity: 1;
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .control-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        #play-pause-btn {
+            opacity: 1;
+            background-color: #fff;
+            color: #000;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+        }
+
+        #play-pause-btn:hover {
+            transform: scale(1.06);
+            background-color: #f0f0f0;
+        }
+
+        #play-pause-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Equalizer Animation */
+        .equalizer {
+            display: none;
+            height: 12px;
+            width: 14px;
+            margin-left: 8px;
+            flex-shrink: 0;
+            gap: 2px;
+            align-items: flex-end;
+        }
+        .playing .equalizer {
+            display: flex;
+        }
+
+        .equalizer-bar {
+            width: 2.5px;
+            height: 100%;
+            background-color: var(--spotify-green);
+            border-radius: 1px;
+            transform-origin: bottom;
+            animation: dance 1.2s infinite ease-in-out;
+        }
+        .equalizer-bar:nth-child(1) { animation-duration: 1.0s; animation-delay: -0.5s; }
+        .equalizer-bar:nth-child(2) { animation-duration: 1.3s; animation-delay: -0.2s; }
+        .equalizer-bar:nth-child(3) { animation-duration: 0.9s; animation-delay: -0.8s; }
+
+        @keyframes dance {
+            0%, 100% { transform: scaleY(0.1); }
+            25% { transform: scaleY(1.0); }
+            50% { transform: scaleY(0.2); }
+            75% { transform: scaleY(0.7); }
+        }
+
+        /* Connect Button - Placed at the end */
+        #configure-btn {
+            display: none;
+            background: var(--spotify-green);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            white-space: nowrap;
+            transition: transform 0.2s;
+        }
+
+        #configure-btn:hover {
+            transform: scale(1.05);
+            background-color: #1ed760;
+        }
+
+        .spotify-brand {
+            margin-left: 12px;
+            width: 20px;
+            height: 20px;
+            color: var(--spotify-green);
+            flex-shrink: 0;
+            opacity: 0.9;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="overlay-container">
+        <img id="album-art" src="" alt="Album Art">
+        
+        <div class="track-info">
+            <div id="track-name"></div>
+            <div id="artist-name-line">
+                <div id="artist-name"></div>
+                <div class="equalizer">
+                    <div class="equalizer-bar"></div>
+                    <div class="equalizer-bar"></div>
+                    <div class="equalizer-bar"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="actions-section">
+            <div id="playback-controls" class="playback-controls">
+                <button id="prev-btn" class="control-btn" title="Previous">
+                    <svg viewBox="0 0 24 24"><path fill="currentColor" d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+                </button>
+                <button id="play-pause-btn" class="control-btn" title="Play/Pause">
+                    <svg id="play-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+                    <svg id="pause-icon" viewBox="0 0 24 24" style="display:none;"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+                <button id="next-btn" class="control-btn" title="Next">
+                    <svg viewBox="0 0 24 24"><path fill="currentColor" d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
+            </div>
+            <button id="configure-btn">Connect Spotify</button>
+        </div>
+
+        <div class="spotify-brand">
+            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.503 17.306c-.218.358-.684.47-1.042.252-2.822-1.725-6.375-2.115-10.559-1.16-.409.093-.82-.163-.913-.571-.093-.409.163-.82.571-.913 4.58-1.045 8.52-.596 11.69 1.345.358.219.47.685.253 1.047zm1.468-3.26c-.274.446-.856.59-1.302.316-3.23-1.985-8.154-2.56-11.972-1.402-.501.152-1.033-.132-1.185-.633-.152-.501.132-1.033.633-1.185 4.37-1.326 9.79-.675 13.51 1.61.446.274.59.856.316 1.302zm.127-3.395c-3.874-2.3-10.274-2.513-14.004-1.381-.594.18-1.223-.163-1.403-.757-.18-.594.163-1.223.757-1.403 4.275-1.298 11.352-1.042 15.82 1.61.534.317.708 1.01.391 1.543-.317.534-1.01.708-1.543.391z"/></svg>
+        </div>
+    </div>
+
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script>
+        const spotifyLogoSvg = `data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" height="800" width="1200" viewBox="-9.30483 -27.9145 241.92566 279.145"><path d="M177.707 98.987c-35.992-21.375-95.36-23.34-129.719-12.912-5.519 1.674-11.353-1.44-13.024-6.958-1.672-5.521 1.439-11.352 6.96-13.029 39.443-11.972 105.008-9.66 146.443 14.936 4.964 2.947 6.59 9.356 3.649 14.31-2.944 4.963-9.359 6.6-14.31 3.653m-1.178 31.658c-2.525 4.098-7.883 5.383-11.975 2.867-30.005-18.444-75.762-23.788-111.262-13.012-4.603 1.39-9.466-1.204-10.864-5.8a8.717 8.717 0 015.805-10.856c40.553-12.307 90.968-6.347 125.432 14.833 4.092 2.52 5.38 7.88 2.864 11.968m-13.663 30.404a6.954 6.954 0 01-9.569 2.316c-26.22-16.025-59.223-19.644-98.09-10.766a6.955 6.955 0 01-8.331-5.232 6.95 6.95 0 015.233-8.334c42.533-9.722 79.017-5.538 108.448 12.446a6.96 6.96 0 012.31 9.57M111.656 0C49.992 0 0 49.99 0 111.656c0 61.672 49.992 111.66 111.657 111.66 61.668 0 111.659-49.988 111.659-111.66C223.316 49.991 173.326 0 111.657 0" fill="%231ed660"/></svg>`;
+
+        let player;
+        let deviceId;
+        let currentAccessToken;
+        let isTransferring = false;
+
+        // Promise that resolves once the player is ready (deviceId is set)
+        let playerReadyResolve;
+        let playerReady = new Promise(resolve => { playerReadyResolve = resolve; });
+
+        // Queue for play commands that arrive before the player is ready
+        let pendingPlayRequest = null;
+
+        const overlayContainerEl = document.querySelector('.overlay-container');
+        const albumArtEl = document.getElementById('album-art');
+        const trackNameEl = document.getElementById('track-name');
+        const artistNameEl = document.getElementById('artist-name');
+        const playbackControlsEl = document.getElementById('playback-controls');
+        const configureBtn = document.getElementById('configure-btn');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+
+        async function waitForBridge() {
+            return new Promise(resolve => {
+                if (window.Komandio) return resolve(window.Komandio);
+                const interval = setInterval(() => {
+                    if (window.Komandio) {
+                        clearInterval(interval);
+                        resolve(window.Komandio);
+                    }
+                }, 50);
+            });
+        }
+
+        function setInitialState() {
+            albumArtEl.classList.add('spotify-logo');
+            albumArtEl.src = spotifyLogoSvg;
+            trackNameEl.innerHTML = `<span>Spotify Player</span>`;
+            artistNameEl.innerHTML = `<span>Initializing...</span>`;
+            overlayContainerEl.classList.remove('playing');
+            playbackControlsEl.style.display = 'none';
+            configureBtn.style.display = 'none';
+            playIcon.style.display = 'block';
+            pauseIcon.style.display = 'none';
+        }
+
+        setInitialState();
+
+        // Initialize Player Logic
+        window.onSpotifyWebPlaybackSDKReady = async () => {
+            const bridge = await waitForBridge();
+            console.log("[Spotify Overlay] Bridge connected, SDK ready.");
+
+            bridge.ui.onCommand("Play", () => { console.log("Overlay received Play"); player?.resume(); });
+            bridge.ui.onCommand("Pause", () => { console.log("Overlay received Pause"); player?.pause(); });
+            bridge.ui.onCommand("Next", () => player?.nextTrack());
+            bridge.ui.onCommand("Prev", () => player?.previousTrack());
+            bridge.ui.onCommand("AUTH_SUCCESS", () => requestTokenAndStart());
+            
+            bridge.ui.onCommand("LoadAndPlay", async (payload) => {
+                console.log("[Spotify Overlay] LoadAndPlay requested:", JSON.stringify(payload));
+                
+                let options = null;
+                if (payload.uris) {
+                    options = { uris: payload.uris };
+                } else if (payload.query) {
+                    try {
+                        const response = await bridge.service.call("SEARCH", { query: payload.query });
+                        if (response.tracks?.items?.length > 0) {
+                            const track = response.tracks.items[0];
+                            options = { uris: [track.uri] };
+                        }
+                    } catch (e) { console.error("[Spotify Overlay] Search failed:", e); }
+                }
+
+                if (!options) return;
+
+                // If the player isn't ready yet, store the request for when it becomes ready
+                if (!deviceId) {
+                    console.log("[Spotify Overlay] Player not ready yet. Queuing play request.");
+                    pendingPlayRequest = options;
+                    return;
+                }
+
+                playContext(options);
+            });
+
+            requestTokenAndStart();
+            };
+
+            async function requestTokenAndStart() {
+            try {
+                const bridge = await waitForBridge();
+                const response = await bridge.service.call("GET_TOKEN");                
+                if (response && response.token) {
+                    currentAccessToken = response.token;
+                    configureBtn.style.display = 'none';
+                    playbackControlsEl.style.display = 'flex';
+                    initializePlayer(currentAccessToken);
+                } else {
+                    artistNameEl.innerHTML = `<span>Not Connected</span>`;
+                    configureBtn.style.display = 'inline-block';
+                    playbackControlsEl.style.display = 'none';
+                }
+            } catch (e) {
+                console.error("[Spotify Overlay] requestTokenAndStart failed:", e);
+                artistNameEl.innerHTML = `<span>Connection Error</span>`;
+            }
+        }
+
+        function initializePlayer(token) {
+            if (player) player.disconnect();
+
+            // Reset ready state for the new player instance
+            deviceId = undefined;
+            playerReady = new Promise(resolve => { playerReadyResolve = resolve; });
+
+            player = new Spotify.Player({
+                name: 'Komandio Overlay',
+                getOAuthToken: cb => { cb(token); },
+                volume: 0.5
+            });
+
+            player.addListener('ready', ({ device_id }) => {
+                deviceId = device_id;
+                console.log("[Spotify Overlay] Player ready with device ID:", deviceId);
+                artistNameEl.innerHTML = `<span>Ready for music</span>`;
+                playerReadyResolve();
+
+                // If a play command arrived before the player was ready, execute it now
+                if (pendingPlayRequest) {
+                    console.log("[Spotify Overlay] Replaying pending play request:", JSON.stringify(pendingPlayRequest));
+                    playContext(pendingPlayRequest);
+                    pendingPlayRequest = null;
+                }
+            });
+
+            player.addListener('player_state_changed', state => {
+                if (!state) return;
+
+                if (state.paused) {
+                    overlayContainerEl.classList.remove('playing');
+                    playIcon.style.display = 'block';
+                    pauseIcon.style.display = 'none';
+                } else {
+                    overlayContainerEl.classList.add('playing');
+                    playIcon.style.display = 'none';
+                    pauseIcon.style.display = 'block';
+                }
+
+                const currentTrack = state.track_window.current_track;
+                albumArtEl.classList.remove('spotify-logo');
+                trackNameEl.innerHTML = `<span>${currentTrack.name}</span>`;
+                artistNameEl.innerHTML = `<span>${currentTrack.artists.map(a => a.name).join(', ')}</span>`;
+                albumArtEl.src = currentTrack.album.images[0].url;
+            });
+
+            player.connect();
+        }
+
+        async function playContext(options) {
+            if (!deviceId || !currentAccessToken) {
+                console.warn("[Spotify Overlay] playContext called but player not ready. deviceId:", deviceId, "hasToken:", !!currentAccessToken);
+                // Store as pending so it can be replayed when ready
+                pendingPlayRequest = options;
+                return;
+            }
+            
+            console.log("[Spotify Overlay] Executing playContext:", JSON.stringify(options));
+
+            try {
+                // Transfer playback to this overlay device first
+                if (!isTransferring) {
+                    isTransferring = true;
+                    const transferResp = await fetch(`https://api.spotify.com/v1/me/player`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ device_ids: [deviceId], play: true }),
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentAccessToken}` }
+                    });
+                    console.log("[Spotify Overlay] Transfer response:", transferResp.status);
+                    await new Promise(r => setTimeout(r, 500));
+                    isTransferring = false;
+                }
+
+                // Start specific track
+                const playResp = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(options),
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentAccessToken}` }
+                });
+                console.log("[Spotify Overlay] Play response:", playResp.status);
+                if (playResp.status > 204) {
+                    const errBody = await playResp.json().catch(() => ({}));
+                    console.error("[Spotify Overlay] Play failed:", JSON.stringify(errBody));
+                }
+            } catch (e) {
+                console.error("[Spotify Overlay] playContext error:", e);
+            }
+        }
+
+        // Button Listeners
+        document.getElementById('prev-btn').addEventListener('click', () => player?.previousTrack());
+        document.getElementById('next-btn').addEventListener('click', () => player?.nextTrack());
+        playPauseBtn.addEventListener('click', () => player?.togglePlay());
+        configureBtn.addEventListener('click', async () => {
+            const bridge = await waitForBridge();
+            bridge.service.call("LOGIN");
+        });
+
+    </script>
+</body>
+</html>

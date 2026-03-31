@@ -1,0 +1,57 @@
+{
+  "id": "star-citizen",
+  "name": "Star Citizen Co-Pilot",
+  "description": "Market data, mining calculator, ship database, and systems control.",
+  "icon": "Rocket24",
+  "publisher": {
+    "id": "komandio-labs",
+    "type": "official",
+    "displayName": "Komandio Labs"
+  },
+  "version": "1.0.0",
+  "permissions": [
+    "network:raw.githubusercontent.com",
+    "network:api.uexcorp.uk",
+    "filesystem:data",
+    "overlay",
+    "input",
+    "secure_storage"
+  ],
+  "setup": {
+    "sections": [
+      {
+        "name": "Market Intelligence",
+        "fields": [
+          {
+            "id": "uex_api_key",
+            "type": "password",
+            "label": "UEXCorp API Key",
+            "description": "Get your API key from uexcorp.uk to enable live market data.",
+            "placeholder": "Enter your key here..."
+          }
+        ]
+      }
+    ]
+  },
+  "entry": {
+    "skill": "skill/index.ts",
+    "service": "service/index.ts",
+    "overlays": [
+      {
+        "id": "main",
+        "name": "Star Citizen HUD",
+        "path": "overlays/main/index.html",
+        "transparent": true,
+        "clickThrough": true
+      }
+    ]
+  },
+  "skill": {
+    "tags": [
+    ],
+    "category": "Gaming",
+    "supportedGames": [
+      "Star Citizen"
+    ]
+  }
+}

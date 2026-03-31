@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "publisher": {
+    "id": "komandio-labs",
+    "type": "official",
+    "displayName": "Komandio Labs"
+  },
+  "id": "timer",
+  "name": "Timer",
+  "version": "1.0.0",
+  "description": "A visual timer extension.",
+  "icon": "Timer24",
+  "supportedGames": [
+    "Any"
+  ],
+  "category": "utility",
+  "permissions": [
+    "overlay",
+    "tts"
+  ],
+  "entry": {
+    "skill": "skill/index.ts",
+    "service": "service/index.ts",
+    "overlays": [
+      {
+        "id": "timer",
+        "name": "Countdown Timer",
+        "path": "overlays/timer/index.html"
+      }
+    ]
+  },
+  "skill": {
+    "tags": [
+      "timer",
+      "utility"
+    ],
+    "category": "utility",
+    "supportedGames": [
+      "Any"
+    ]
+  }
+}

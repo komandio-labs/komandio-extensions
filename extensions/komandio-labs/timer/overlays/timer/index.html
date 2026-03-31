@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Komandio Timer</title>
+    <style>
+        :root {
+            --neon-cyan: #00f3ff;
+            --bg-dark: rgba(10, 10, 15, 0.85);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: transparent;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+        }
+
+        .container {
+            background: var(--bg-dark);
+            border: 1px solid var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+            border-radius: 8px;
+            padding: 15px 25px;
+            width: 250px;
+            text-align: center;
+            position: relative;
+            backdrop-filter: blur(10px);
+        }
+
+        .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+
+        .time {
+            font-size: 42px;
+            font-weight: 800;
+            font-family: 'Consolas', monospace;
+            text-shadow: 0 0 10px var(--neon-cyan);
+        }
+
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: var(--neon-cyan);
+            width: 100%;
+            transition: width 1s linear;
+        }
+
+        .finished {
+            animation: pulse 1s infinite;
+            color: #ff0055;
+            text-shadow: 0 0 10px #ff0055;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="container">
+        <div class="label" id="label">Timer</div>
+        <div class="time" id="time">00:00</div>
+        <div class="progress-bar" id="progress"></div>
+        <div id="debug" style="font-size: 8px; opacity: 0.3; margin-top: 5px; font-family: monospace;">Waiting...</div>
+    </div>
+
+    <script>
+        // No import needed - Komandio is injected globally by the host
+        const labelEl = document.getElementById('label');
+        const timeEl = document.getElementById('time');
+        const progressEl = document.getElementById('progress');
+        const debugEl = document.getElementById('debug');
+
+        let totalDuration = 0;
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        if (window.Komandio) {
+            Komandio.ui.onCommand("Update", (payload) => {
+                if (!payload) return;
+                
+                // Debug: Show raw payload keys
+                debugEl.textContent = "Keys: " + Object.keys(payload).join(', ');
+
+                // Exhaustive casing check
+                const label = payload.label ?? payload.Label;
+                const state = payload.state ?? payload.State;
+                const duration = payload.duration ?? payload.Duration;
+                const remaining = payload.remaining ?? payload.Remaining;
+
+                if (label) labelEl.textContent = label;
+                
+                if (typeof duration === 'number' && duration > 0) {
+                    totalDuration = duration;
+                }
+
+                if (typeof remaining === 'number') {
+                    timeEl.textContent = formatTime(remaining);
+                    
+                    if (totalDuration > 0) {
+                        const percent = (remaining / totalDuration) * 100;
+                        progressEl.style.width = `${percent}%`;
+                    }
+                }
+
+                if (state === "finished" || state === "Finished") {
+                    timeEl.classList.add('finished');
+                    progressEl.style.width = "0%";
+                } else {
+                    timeEl.classList.remove('finished');
+                }
+            });
+
+            // Tell host we are ready
+            Komandio.os.reportReady();
+            // Request immediate state sync
+            setTimeout(() => {
+                Komandio.service.call({ targetId: "komandio-labs.timer", command: "REPORT_READY" });
+            }, 100);
+        } else {
+            debugEl.textContent = "Error: Komandio SDK not found!";
+        }
+    </script>
+</body>
+</html>

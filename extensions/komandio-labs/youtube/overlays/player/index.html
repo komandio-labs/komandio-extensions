@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            background-color: #000; 
+            width: 100vw; 
+            height: 100vh;
+        }
+        #player { 
+            width: 100vw; 
+            height: 100vh; 
+            background-color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div id="player"></div>
+    <script>
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        var player;
+        var isPlayerReady = false;
+        var internalQueue = [];
+
+        function onYouTubeIframeAPIReady() {
+            console.log("[YT] API Script Loaded");
+            player = new YT.Player('player', {
+                host: 'https://www.youtube-nocookie.com',
+                width: '100%',
+                height: '100%',
+                playerVars: {
+                    'enablejsapi': 1,
+                    'controls': 1,
+                    'rel': 0,
+                    'showinfo': 0,
+                    'fs': 0,
+                    'iv_load_policy': 3,
+                    'modestbranding': 1,
+                    'playsinline': 1,
+                    'autoplay': 1
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': (e) => console.log("[YT] State:", e.data),
+                    'onError': (e) => console.error("[YT] Error:", e.data)
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            console.log("[YT] Player Ready");
+            isPlayerReady = true;
+            
+            // Flush internal queue
+            if (internalQueue.length > 0) {
+                console.log("[YT] Flushing internal queue, size:", internalQueue.length);
+                while (internalQueue.length > 0) {
+                    (internalQueue.shift())();
+                }
+            }
+
+            // Signal Host that we are ready (hides loading spinner)
+            if (window.Komandio && Komandio.os && Komandio.os.reportReady) {
+                Komandio.os.reportReady();
+            }
+        }
+
+        // --- SDK Command Handlers ---
+
+        Komandio.ui.onCommand("LoadAndPlay", loadVideo);
+        Komandio.ui.onCommand("Load", loadVideo);
+
+        Komandio.ui.onCommand("Play", () => safeCall(() => player.playVideo()));
+        Komandio.ui.onCommand("Pause", () => safeCall(() => player.pauseVideo()));
+        Komandio.ui.onCommand("Stop", () => safeCall(() => player.stopVideo()));
+        Komandio.ui.onCommand("Next", () => safeCall(() => { if (player.nextVideo) player.nextVideo(); }));      
+        Komandio.ui.onCommand("Prev", () => safeCall(() => { if (player.previousVideo) player.previousVideo(); }));
+
+        Komandio.ui.onCommand("Seek", (payload) => {
+            safeCall(() => {
+                const seconds = typeof payload === 'number' ? payload : (payload.seconds || payload.seek || 0);  
+                player.seekTo(seconds, true);
+            });
+        });
+
+        Komandio.ui.onCommand("SetProperties", (payload) => {
+            safeCall(() => {
+                if (!payload) return;
+                if (payload.volume !== undefined) player.setVolume(payload.volume);
+                if (payload.isMuted !== undefined) payload.isMuted ? player.mute() : player.unMute();
+                if (payload.playbackRate !== undefined) player.setPlaybackRate(payload.playbackRate);
+                if (payload.isLooping !== undefined) player.setLoop(payload.isLooping);
+                if (payload.isShuffling !== undefined) player.setShuffle(payload.isShuffling);
+            });
+        });
+
+        function safeCall(action) {
+            if (!isPlayerReady) {
+                console.warn("[YT] Player not ready. Queuing command.");
+                internalQueue.push(action);
+                return;
+            }
+            action();
+        }
+
+        function loadVideo(payload) {
+            safeCall(() => {
+                const items = Array.isArray(payload) ? payload : [payload];
+                const videoIds = items.map(item => item?.videoId).filter(id => !!id);
+
+                if (videoIds.length > 1) {
+                    console.log("[YT] Loading Playlist:", videoIds);
+                    player.loadPlaylist(videoIds, 0, 0);
+                    player.playVideo();
+                } else if (videoIds.length === 1) {
+                    console.log("[YT] Loading Single Video:", videoIds[0]);
+                    player.loadVideoById(videoIds[0], 0);
+                    player.playVideo();
+                } else {
+                    console.error("[YT] LoadVideo received with invalid payload. Expected { videoId: string } or array thereof, got:", payload);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Compiled extension output
+extensions/**/index.js
+extensions/**/index.js.map
+
+# Runtime extension data (volatile — never committed, created by host on install)
+extensions/**/data/
+
+# Deno cache
+.deno/
+deno.lock
+
+# OS
+.DS_Store
+Thumbs.db

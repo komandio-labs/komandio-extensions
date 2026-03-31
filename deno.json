@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "imports": {
+    "std/": "jsr:@std/",
+    "@komandio/sdk": "../komandio-app/sdk/src/deno/mod.ts",
+    "@komandio/sdk/fuzzy": "../komandio-app/sdk/src/fuzzy/levenshtein.ts"
+  },
+  "tasks": {
+    "test": "deno test --allow-read --allow-write --allow-env --no-check extensions/",
+    "dev": "deno run -A tools/devkit.ts"
+  }
+}
