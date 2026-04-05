@@ -1,8 +1,7 @@
 #!/usr/bin/env -S deno run -A
 import { Command } from "jsr:@cliffy/command@1.0.0-rc.7";
-import { join, dirname, resolve, fromFileUrl } from "jsr:@std/path@1.0.8";
-import { pathToFileURL } from "jsr:@std/url@1.0.5";
-import { exists } from "jsr:@std/fs@1.0.11";
+import { join, dirname, resolve, fromFileUrl, toFileUrl } from "jsr:@std/path@1.0.8";
+import { exists, copy } from "jsr:@std/fs@1.0.11";
 import * as esbuild from "https://deno.land/x/esbuild@v0.24.2/mod.js";
 import { denoPlugins } from "jsr:@luca/esbuild-deno-loader@0.11.1";
 
@@ -64,29 +63,19 @@ await new Command()
 
   // BUILD Command
   .command("build", "Build and bundle the extension")
-  .option("-o, --out <dir:string>", "Output directory", { default: "./dist" })
+  .option("-o, --out <dir:string>", "Output directory")
   .action(async (options) => {
-    await performBuild(options.out as string);
+    await performBuild(options.out as string | undefined);
     await esbuild.stop();
   })
 
   // DEV Command
-  .command("dev", "Start development mode with live-sync to AppData")
+  .command("dev", "Start development mode with live-sync to global dist")
   .action(async () => {
-    const localAppData = Deno.env.get("LOCALAPPDATA");
-    if (!localAppData) {
-        console.error("❌ Error: LOCALAPPDATA environment variable not found.");
-        Deno.exit(1);
-    }
-
-    const manifest = await readManifest();
-    const devMirrorPath = join(localAppData, "Komandio", "Extensions", "dev", `${manifest.publisher.id}.${manifest.id}`);
-    
     console.log(`📡 Dev Mode Started: Watching for changes...`);
-    console.log(`🔗 Mirroring to: ${devMirrorPath}`);
 
-    // Initial Build
-    await performBuild(devMirrorPath);
+    // Initial Build (mirror path is computed inside performBuild)
+    await performBuild(undefined);
 
     const watcher = Deno.watchFs(".");
     let debounceTimer: any = null;
@@ -99,7 +88,7 @@ await new Command()
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(async () => {
                 console.log(`🔄 Change detected, rebuilding...`);
-                await performBuild(devMirrorPath);
+                await performBuild(undefined);
             }, 300);
         }
     }
@@ -146,26 +135,34 @@ async function readManifest() {
     }
 }
 
-async function performBuild(outDir: string) {
+async function performBuild(outDir: string | undefined) {
     const manifest = await readManifest();
-    const absOutDir = resolve(outDir);
+
+    const resolvedOutDir = outDir
+        ? resolve(outDir)
+        : resolve(dirname(fromFileUrl(import.meta.url)), "../../dist", `${manifest.publisher.id}.${manifest.id}`);
+
+    console.log(`Output directory: ${resolvedOutDir}`);
+    const absOutDir = resolvedOutDir;
     await Deno.mkdir(absOutDir, { recursive: true });
 
     // Determine path to SDK for metadata extraction
     const scriptDir = fromFileUrl(import.meta.url);
     const sdkPath = resolve(dirname(scriptDir), "../../packages/web-sdk/src/deno/mod.ts");
 
-    for await (const entry of Deno.readDir(".")) {
-        if (entry.isDirectory && (entry.name.endsWith(".skill") || entry.name.endsWith(".service") || entry.name.endsWith(".overlay"))) {
-            
-            const componentOutDir = join(absOutDir, entry.name);
-            await Deno.mkdir(componentOutDir, { recursive: true });
+    const isSkillDir   = (name: string) => name === "skill"   || name.endsWith(".skill");
+    const isServiceDir = (name: string) => name === "service" || name.endsWith(".service");
+    const isOverlayDir = (name: string) => name === "overlays" || name === "overlay" || name.endsWith(".overlay");
 
-            if (entry.name.endsWith(".overlay")) {
-                // Copy overlay assets
-                for await (const file of Deno.readDir(entry.name)) {
-                    await Deno.copyFile(join(entry.name, file.name), join(componentOutDir, file.name));
-                }
+    for await (const entry of Deno.readDir(".")) {
+        if (!entry.isDirectory) continue;
+        if (!isSkillDir(entry.name) && !isServiceDir(entry.name) && !isOverlayDir(entry.name)) continue;
+
+        const componentOutDir = join(absOutDir, entry.name);
+        await Deno.mkdir(componentOutDir, { recursive: true });
+
+            if (isOverlayDir(entry.name)) {
+                await copy(entry.name, componentOutDir, { overwrite: true });
                 continue;
             }
 
@@ -176,10 +173,10 @@ async function performBuild(outDir: string) {
 
             console.log(`  📦 Bundling ${entry.name}...`);
             
-            if (entry.name.endsWith(".skill")) {
+            if (isSkillDir(entry.name)) {
                 try {
-                    const sourceEntryUrl = pathToFileURL(resolve(entryFile)).href;
-                    const sdkUrl = pathToFileURL(sdkPath).href;
+                    const sourceEntryUrl = toFileUrl(resolve(entryFile)).href;
+                    const sdkUrl = toFileUrl(sdkPath).href;
                     const code = `
                         const module = await import("${sourceEntryUrl}");
                         const TargetClass = module.default;
@@ -247,22 +244,66 @@ async function performBuild(outDir: string) {
                 }
             }
 
-            await esbuild.build({
-                plugins: [...denoPlugins()],
-                entryPoints: [pathToFileURL(resolve(entryFile)).href],
-                bundle: true,
-                format: "esm",
-                outfile: outFile,
-                platform: "neutral",
-                external: ["@komandio/sdk"]
-            });
+            const denoConfigPath = resolve(dirname(fromFileUrl(import.meta.url)), "../../deno.json");
 
-            if (!manifest.entry) manifest.entry = {};
-            if (entry.name.endsWith(".skill")) manifest.entry.skill = entry.name + "/index.js";
-            if (entry.name.endsWith(".service")) manifest.entry.service = entry.name + "/index.js";
+            let bundleOk = false;
+            try {
+                await esbuild.build({
+                    plugins: [...denoPlugins({ configPath: denoConfigPath })],
+                    entryPoints: [toFileUrl(resolve(entryFile)).href],
+                    bundle: true,
+                    format: "esm",
+                    outfile: outFile,
+                    platform: "neutral",
+                    external: ["@komandio/sdk"],
+                    tsconfigRaw: {
+                        compilerOptions: {
+                            experimentalDecorators: true,
+                            emitDecoratorMetadata: false
+                        }
+                    }
+                });
+                bundleOk = true;
+            } catch (e) {
+                console.error(`  ❌ Bundle failed for ${entry.name}: ${e.message}`);
+            }
+
+            if (bundleOk) {
+                // Copy any non-TypeScript supporting files (assets, JSON, etc.)
+                for await (const file of Deno.readDir(entry.name)) {
+                    if (file.isFile && !file.name.endsWith(".ts")) {
+                        await Deno.copyFile(
+                            join(entry.name, file.name),
+                            join(componentOutDir, file.name)
+                        );
+                    }
+                }
+
+                if (!manifest.entry) manifest.entry = {};
+                if (isSkillDir(entry.name))   manifest.entry.skill   = entry.name + "/index.js";
+                if (isServiceDir(entry.name)) manifest.entry.service = entry.name + "/index.js";
+            }
+    }
+
+    // Verify that every declared manifest.entry path exists in the output dir
+    if (manifest.entry) {
+        for (const [key, value] of Object.entries(manifest.entry)) {
+            if (key === "overlays" && Array.isArray(value)) {
+                for (const overlay of value as Array<{ id: string; path: string }>) {
+                    const fullPath = join(absOutDir, overlay.path);
+                    if (!await exists(fullPath)) {
+                        console.warn(`  ⚠️  manifest.entry.overlays["${overlay.id}"] points to "${overlay.path}" but that file was not produced in the output dir`);
+                    }
+                }
+            } else {
+                const fullPath = join(absOutDir, value as string);
+                if (!await exists(fullPath)) {
+                    console.warn(`  ⚠️  manifest.entry.${key} points to "${value}" but that file was not produced in the output dir`);
+                }
+            }
         }
     }
-    
+
     await Deno.writeTextFile(join(absOutDir, "manifest.json"), JSON.stringify(manifest, null, 2));
     console.log("✅ Build complete!");
 }

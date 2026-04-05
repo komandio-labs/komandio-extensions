@@ -1,4 +1,4 @@
-import { Komandio, Skill, Tool, ToolParam, Result, ToolResult } from "@komandio/sdk";
+import { Komandio, Skill, Tool, Result, ToolResult } from "@komandio/sdk";
 
 @Skill({
   name: "youtube",
@@ -22,27 +22,14 @@ export default class YouTubeSkill {
   @Tool({
     name: "run_command",
     description: "Search, show, find, or play videos on YouTube. Use this tool whenever the user asks to show, find, search for, watch, or play something on YouTube. Supports actions: play (also covers 'show', 'find', 'search for', 'look up', 'watch'), pause, resume, stop, next, previous, close.",
-    returns: "Confirmation message about the action taken."
+    returns: "Confirmation message about the action taken.",
+    params: [
+      { name: "action", description: "The action to perform. Use 'play' when the user says show, find, search, look up, watch, or play. Other values: 'pause', 'resume', 'stop', 'next', 'previous', 'close', 'current'.", type: "string" },
+      { name: "query", description: "The search query. Optional. If omitted and action is 'play', opens YouTube homepage.", type: "string", optional: true },
+      { name: "target", description: "Where to play: 'overlay', 'browser', or 'ask'. Leave empty to use user's default setting.", type: "string", optional: true }
+    ]
   })
-  async run_command(
-    @ToolParam({
-      name: "action",
-      description: "The action to perform. Use 'play' when the user says show, find, search, look up, watch, or play. Other values: 'pause', 'resume', 'stop', 'next', 'previous', 'close', 'current'.",
-      type: "string"
-    }) action: string,
-    @ToolParam({
-      name: "query",
-      description: "The search query. Optional. If omitted and action is 'play', opens YouTube homepage.",
-      type: "string",
-      optional: true
-    }) query?: string,
-    @ToolParam({
-        name: "target",
-        description: "Where to play: 'overlay', 'browser', or 'ask'. Leave empty to use user's default setting.",
-        type: "string",
-        optional: true
-    }) target?: string
-  ): Promise<ToolResult<string>> {
+  async run_command(action: string, query?: string, target?: string): Promise<ToolResult<string>> {
     const overlayId = "komandio-labs.youtube/overlay/player";
 
     try {
@@ -133,7 +120,7 @@ export default class YouTubeSkill {
     const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
     
     try {
-        const response = await Komandio.network.fetch(url, {
+        const response = await fetch(url, {
             headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
             }

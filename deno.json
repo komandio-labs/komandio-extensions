@@ -1,8 +1,4 @@
 {
-  "compilerOptions": {
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
-  },
   "imports": {
     "std/": "jsr:@std/",
     "@komandio/sdk": "../komandio-app/sdk/src/deno/mod.ts",
@@ -10,6 +6,8 @@
   },
   "tasks": {
     "test": "deno test --allow-read --allow-write --allow-env --no-check extensions/",
-    "dev": "deno run -A tools/devkit.ts"
+    "dev": "deno run -A tools/devkit.ts",
+    "build-all": "deno run -A tools/build-all.ts",
+    "deploy-local": "deno run -A tools/deploy-local.ts"
   }
 }

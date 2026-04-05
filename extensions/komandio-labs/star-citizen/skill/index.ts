@@ -1,4 +1,4 @@
-import { Komandio, Skill, Tool, ToolParam, Result, ToolResult } from "@komandio/sdk";
+import { Komandio, Skill, Tool, Result, ToolResult } from "@komandio/sdk";
 
 @Skill({
   name: "star_citizen",
@@ -23,13 +23,14 @@ export default class StarCitizenSkill {
   @Tool({
     name: "find_ships_by_criteria",
     description: "Search for Star Citizen ships by name, manufacturer, or role. Returns up to 5 results.",
-    returns: "A compact list of matching ships."
+    returns: "A compact list of matching ships.",
+    params: [
+      { name: "query", description: "Name or manufacturer to search for.", type: "string", optional: true },
+      { name: "role", description: "Role filter e.g. 'mining', 'cargo', 'salvage', 'medical', 'exploration', 'military'.", type: "string", optional: true },
+      { name: "max_crew", description: "Maximum crew size for filtering solo/small crew ships.", type: "number", optional: true }
+    ]
   })
-  async find_ships_by_criteria(
-    @ToolParam({ name: "query", description: "Name or manufacturer to search for.", type: "string", optional: true })query?: string,
-    @ToolParam({ name: "role", description: "Role filter e.g. 'mining', 'cargo', 'salvage', 'medical', 'exploration', 'military'.", type: "string", optional: true })role?: string,
-    @ToolParam({ name: "max_crew", description: "Maximum crew size for filtering solo/small crew ships.", type: "number", optional: true })max_crew?: number
-  ): Promise<ToolResult<string>> {
+  async find_ships_by_criteria(query?: string, role?: string, max_crew?: number): Promise<ToolResult<string>> {
     try {
         if (!query && !role) {
             return Result.error("At least one of 'query' or 'role' must be provided.");
@@ -76,11 +77,12 @@ export default class StarCitizenSkill {
   @Tool({
     name: "get_ship_info",
     description: "Retrieves detailed specifications, pricing, and specific in-game purchase/rental locations for a ship.",
-    returns: "Detailed ship stats including where to buy or rent it."
+    returns: "Detailed ship stats including where to buy or rent it.",
+    params: [
+      { name: "ship_name", description: "The exact or partial name of the ship.", type: "string" }
+    ]
   })
-  async get_ship_info(
-    @ToolParam({ name: "ship_name", description: "The exact or partial name of the ship.", type: "string" }) ship_name: string
-  ): Promise<ToolResult<string>> {
+  async get_ship_info(ship_name: string): Promise<ToolResult<string>> {
     try {
         const ship: any = await Komandio.service.call({
             targetId: "komandio-labs.star-citizen",

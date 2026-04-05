@@ -1,4 +1,4 @@
-import {Komandio, Skill, Tool, ToolParam, Result, ToolResult} from "@komandio/sdk";
+import {Komandio, Skill, Tool, Result, ToolResult} from "@komandio/sdk";
 
 @Skill({
     name: "spotify",
@@ -23,26 +23,17 @@ export default class SpotifySkill {
     @Tool({
         name: "run_command",
         description: "CRITICAL: You MUST call this tool to control Spotify. Use 'login' to authenticate/connect. Do NOT acknowledge the user's request without calling this tool first. If you do not call this tool, the music will NOT change. Use this for ALL playback actions: 'play', 'pause', 'resume', 'next', 'previous', 'stop'.",
-        returns: "A confirmation message about the playback action."
+        returns: "A confirmation message about the playback action.",
+        params: [
+            { name: "action", description: "The action to perform: 'play', 'pause', 'resume', 'next', 'previous', 'stop', 'login', 'current'.", type: "string" },
+            { name: "query", description: "The song title or artist name (required for 'play' action).", type: "string", optional: true },
+            { name: "target", description: "Optional explicit playback target: 'overlay', 'browser', 'desktop', 'active', 'phone'.", type: "string", optional: true }
+        ]
     })
     async run_command(
-        @ToolParam({
-            name: "action",
-            description: "The action to perform: 'play', 'pause', 'resume', 'next', 'previous', 'stop', 'login', 'current'.",
-            type: "string"
-        }) action: string,
-        @ToolParam({
-            name: "query",
-            description: "The song title or artist name (required for 'play' action).",
-            type: "string",
-            optional: true
-        }) query?: string,
-        @ToolParam({
-            name: "target",
-            description: "Optional explicit playback target: 'overlay', 'browser', 'desktop', 'active', 'phone'.",
-            type: "string",
-            optional: true
-        }) target?: string
+        action: string,
+        query?: string,
+        target?: string
     ): Promise<ToolResult<string>> {
         const overlayId = "komandio-labs.spotify/overlay/player";
 

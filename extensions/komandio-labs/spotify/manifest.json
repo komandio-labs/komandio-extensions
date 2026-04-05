@@ -10,9 +10,7 @@
   "version": "1.0.0",
   "description": "Pure HTML/JS Spotify Player with background service and Voice Controls.",
   "icon": "MusicNote224",
-  "supportedGames": [
-    "Any"
-  ],
+  "supportedGame": "Any",
   "category": "media",
   "permissions": [
     "network:api.spotify.com",
@@ -171,8 +169,6 @@
       "albums"
     ],
     "category": "media",
-    "supportedGames": [
-      "Any"
-    ]
+    "supportedGame": "Any"
   }
 }

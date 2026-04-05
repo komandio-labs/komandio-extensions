@@ -10,9 +10,7 @@
   "version": "1.0.0",
   "description": "Pure HTML/JS YouTube Player Overlay with Voice Controls.",
   "icon": "Video24",
-  "supportedGames": [
-    "Any"
-  ],
+  "supportedGame": "Any",
   "category": "media",
   "permissions": [
     "network:www.youtube.com",
@@ -211,9 +209,7 @@
       "visual"
     ],
     "category": "media",
-    "supportedGames": [
-      "Any"
-    ]
+    "supportedGame": "Any"
   }
 }
 

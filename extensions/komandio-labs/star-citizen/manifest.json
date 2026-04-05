@@ -14,7 +14,6 @@
     "network:api.uexcorp.uk",
     "filesystem:data",
     "overlay",
-    "input",
     "secure_storage"
   ],
   "setup": {
@@ -50,8 +49,6 @@
     "tags": [
     ],
     "category": "Gaming",
-    "supportedGames": [
-      "Star Citizen"
-    ]
+    "supportedGame": "Star Citizen"
   }
 }

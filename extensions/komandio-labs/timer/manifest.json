@@ -10,9 +10,7 @@
   "version": "1.0.0",
   "description": "A visual timer extension.",
   "icon": "Timer24",
-  "supportedGames": [
-    "Any"
-  ],
+  "supportedGame": "Any",
   "category": "utility",
   "permissions": [
     "overlay",
@@ -35,8 +33,6 @@
       "utility"
     ],
     "category": "utility",
-    "supportedGames": [
-      "Any"
-    ]
+    "supportedGame": "Any"
   }
 }

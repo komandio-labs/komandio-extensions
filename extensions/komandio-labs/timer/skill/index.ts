@@ -1,4 +1,4 @@
-import { Komandio, Skill, Tool, ToolParam, Result, ToolResult } from "@komandio/sdk";
+import { Komandio, Skill, Tool, Result, ToolResult } from "@komandio/sdk";
 
 @Skill({
   name: "timer",
@@ -20,21 +20,13 @@ export default class TimerSkill {
   @Tool({
     name: "start_timer",
     description: "Starts a countdown timer for a specified duration.",
-    returns: "A confirmation message."
+    returns: "A confirmation message.",
+    params: [
+      { name: "duration", description: "Duration in seconds.", type: "number" },
+      { name: "label", description: "Label for the timer. If the user does not explicitly provide a label, leave this blank.", type: "string", optional: true }
+    ]
   })
-  async start_timer(
-    @ToolParam({
-      name: "duration",
-      description: "Duration in seconds.",
-      type: "number"
-    }) duration: number,
-    @ToolParam({
-      name: "label",
-      description: "Label for the timer. If the user does not explicitly provide a label, leave this blank.",
-      type: "string",
-      optional: true
-    }) label?: string
-  ): Promise<ToolResult<string>> {
+  async start_timer(duration: number, label?: string): Promise<ToolResult<string>> {
     try {
         if (duration <= 0) {
             return Result.fail("Duration must be greater than zero.");
