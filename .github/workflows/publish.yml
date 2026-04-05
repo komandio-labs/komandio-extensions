@@ -1,0 +1,145 @@
+name: Publish Extension
+
+on:
+  push:
+    tags:
+      - '*-v*'        # prod:  spotify-v1.2.0
+      - '*-v*-beta'   # beta:  spotify-v1.2.0-beta
+  workflow_dispatch:
+    inputs:
+      extension:
+        description: 'Extension name (e.g. spotify)'
+        required: true
+      beta:
+        description: 'Publish to Beta environment?'
+        type: boolean
+        default: true
+
+jobs:
+  publish:
+    name: Build, Pack & Publish
+    runs-on: ubuntu-latest
+    environment: ${{ (github.event_name == 'workflow_dispatch' && inputs.beta) && 'Beta' || endsWith(github.ref_name, '-beta') && 'Beta' || 'Prod' }}
+
+    env:
+      PUBLISHER: komandio-labs
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Parse inputs
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual run: read version from manifest, no tag parsing needed
+            EXTENSION="${{ inputs.extension }}"
+            ENV="${{ inputs.beta == 'true' && 'beta' || 'prod' }}"
+            MANIFEST="extensions/${PUBLISHER}/${EXTENSION}/manifest.json"
+
+            if [ ! -f "${MANIFEST}" ]; then
+              echo "❌ manifest.json not found for extension: ${EXTENSION}"
+              exit 1
+            fi
+
+            VERSION=$(jq -r '.version' "${MANIFEST}")
+          else
+            # Tag push: parse extension + version from tag, then validate against manifest
+            TAG="${{ github.ref_name }}"
+
+            if [[ "${TAG}" == *-beta ]]; then
+              ENV="beta"
+              TAG_BASE="${TAG%-beta}"
+            else
+              ENV="prod"
+              TAG_BASE="${TAG}"
+            fi
+
+            EXTENSION="${TAG_BASE%-v*}"
+            VERSION="${TAG_BASE##*-v}"
+            MANIFEST="extensions/${PUBLISHER}/${EXTENSION}/manifest.json"
+
+            if [ ! -f "${MANIFEST}" ]; then
+              echo "❌ manifest.json not found for extension: ${EXTENSION}"
+              exit 1
+            fi
+
+            MANIFEST_VERSION=$(jq -r '.version' "${MANIFEST}")
+            if [ "${VERSION}" != "${MANIFEST_VERSION}" ]; then
+              echo "❌ Tag version (${VERSION}) does not match manifest version (${MANIFEST_VERSION})"
+              exit 1
+            fi
+          fi
+
+          SLUG="${PUBLISHER}.${EXTENSION}"
+
+          echo "env=${ENV}"                      >> $GITHUB_OUTPUT
+          echo "extension=${EXTENSION}"          >> $GITHUB_OUTPUT
+          echo "version=${VERSION}"              >> $GITHUB_OUTPUT
+          echo "slug=${SLUG}"                    >> $GITHUB_OUTPUT
+          echo "filename=${SLUG}-${VERSION}.kxt" >> $GITHUB_OUTPUT
+
+          echo "Parsed: env=${ENV} extension=${EXTENSION} version=${VERSION}"
+
+      - name: Build extension
+        run: |
+          EXT_DIR="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}"
+
+          cd "${EXT_DIR}"
+          deno run -A ../../../tools/komander-cli/komander.ts build -o dist/
+
+      - name: Pack extension
+        run: |
+          EXT_DIR="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}"
+          FILENAME="${{ steps.tag.outputs.filename }}"
+
+          cd "${EXT_DIR}/dist"
+          zip -r "../${FILENAME}" .
+          echo "✅ Packed: ${FILENAME}"
+
+      - name: Upload to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          EXT_DIR="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}"
+          FILENAME="${{ steps.tag.outputs.filename }}"
+          VERSION="${{ steps.tag.outputs.version }}"
+          EXTENSION="${{ steps.tag.outputs.extension }}"
+
+          R2_KEY="extensions/${PUBLISHER}/${EXTENSION}/${VERSION}/${FILENAME}"
+
+          aws s3 cp "${EXT_DIR}/${FILENAME}" "s3://${{ secrets.R2_BUCKET }}/${R2_KEY}" \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+
+          ARCHIVE_URL="${{ secrets.R2_PUBLIC_BASE_URL }}/${R2_KEY}"
+          echo "ARCHIVE_URL=${ARCHIVE_URL}" >> $GITHUB_ENV
+          echo "✅ Uploaded to: ${ARCHIVE_URL}"
+
+      - name: Publish metadata to backend
+        run: |
+          EXT_DIR="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}"
+          MANIFEST="${EXT_DIR}/dist/manifest.json"
+
+          PAYLOAD=$(jq --arg url "${ARCHIVE_URL}" '. + {archiveUrl: $url}' "${MANIFEST}")
+
+          HTTP_STATUS=$(curl -s -o /tmp/publish_response.json -w "%{http_code}" \
+            -X POST "${{ secrets.BACKEND_URL }}/internal/extensions/publish" \
+            -H "Content-Type: application/json" \
+            -H "X-Internal-Api-Key: ${{ secrets.BACKEND_INTERNAL_API_KEY }}" \
+            -d "${PAYLOAD}")
+
+          cat /tmp/publish_response.json
+
+          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+            echo "❌ Publish failed with HTTP ${HTTP_STATUS}"
+            exit 1
+          fi
+
+          echo "✅ Published [${{ steps.tag.outputs.env }}]: ${{ steps.tag.outputs.slug }} v${{ steps.tag.outputs.version }}"
