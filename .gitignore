@@ -22,6 +22,11 @@ deno.lock
 .env
 .env.*
 
+# Never commit private keys
+keys/*.pem
+keys/*.p8
+keys/*.key
+
 # IDE
 .vscode/
 

@@ -97,6 +97,20 @@ jobs:
           cd "${EXT_DIR}"
           deno run -A ../../../tools/komander-cli/komander.ts build -o dist/
 
+      - name: Stamp publisher identity
+        run: |
+          MANIFEST="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}/dist/manifest.json"
+
+          jq \
+            --arg pub_id "${PUBLISHER}" \
+            --arg pub_type "official" \
+            --arg pub_name "Komandio Labs" \
+            '.publisher = {id: $pub_id, type: $pub_type, displayName: $pub_name}' \
+            "${MANIFEST}" > /tmp/manifest.patched.json
+
+          mv /tmp/manifest.patched.json "${MANIFEST}"
+          echo "✅ Publisher stamped: $(jq -c '.publisher' "${MANIFEST}")"
+
       - name: Pack extension
         run: |
           EXT_DIR="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}"
@@ -105,6 +119,29 @@ jobs:
           cd "${EXT_DIR}/dist"
           zip -r "../${FILENAME}" .
           echo "✅ Packed: ${FILENAME}"
+
+      - name: Hash & sign
+        run: |
+          EXT_DIR="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}"
+          FILENAME="${{ steps.tag.outputs.filename }}"
+          KXT="${EXT_DIR}/${FILENAME}"
+
+          # SHA-256 hash (hex)
+          ARCHIVE_HASH=$(sha256sum "${KXT}" | awk '{print $1}')
+          echo "ARCHIVE_HASH=${ARCHIVE_HASH}" >> $GITHUB_ENV
+          echo "✅ Hash: ${ARCHIVE_HASH}"
+
+          # Decode private key from base64 secret
+          echo "${{ secrets.EXTENSIONS_SIGNING_KEY_BASE64 }}" | base64 -d > /tmp/signing.pem
+
+          # Sign the hash (binary DER signature → base64)
+          echo -n "${ARCHIVE_HASH}" | openssl dgst -sha256 -sign /tmp/signing.pem | base64 -w 0 > /tmp/signature.b64
+          ARCHIVE_SIGNATURE=$(cat /tmp/signature.b64)
+          echo "ARCHIVE_SIGNATURE=${ARCHIVE_SIGNATURE}" >> $GITHUB_ENV
+
+          # Clean up private key immediately
+          rm -f /tmp/signing.pem
+          echo "✅ Signed"
 
       - name: Upload to Cloudflare R2
         env:
@@ -128,10 +165,14 @@ jobs:
 
       - name: Publish metadata to backend
         run: |
-          EXT_DIR="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}"
-          MANIFEST="${EXT_DIR}/dist/manifest.json"
+          MANIFEST="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}/dist/manifest.json"
 
-          PAYLOAD=$(jq --arg url "${ARCHIVE_URL}" '. + {archiveUrl: $url}' "${MANIFEST}")
+          PAYLOAD=$(jq \
+            --arg url  "${ARCHIVE_URL}" \
+            --arg hash "${ARCHIVE_HASH}" \
+            --arg sig  "${ARCHIVE_SIGNATURE}" \
+            '. + {archiveUrl: $url, archiveHash: $hash, archiveSignature: $sig}' \
+            "${MANIFEST}")
 
           HTTP_STATUS=$(curl -s -o /tmp/publish_response.json -w "%{http_code}" \
             -X POST "${{ secrets.BACKEND_URL }}/internal/extensions/publish" \
