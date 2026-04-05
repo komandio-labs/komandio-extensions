@@ -7,19 +7,23 @@ on:
       - '*-v*-beta'   # beta:  spotify-v1.2.0-beta
   workflow_dispatch:
     inputs:
+      environment:
+        description: 'Target environment'
+        type: choice
+        options:
+          - Beta
+          - Prod
+        default: Beta
+        required: true
       extension:
         description: 'Extension name (e.g. spotify)'
         required: true
-      beta:
-        description: 'Publish to Beta environment?'
-        type: boolean
-        default: true
 
 jobs:
   publish:
     name: Build, Pack & Publish
     runs-on: ubuntu-latest
-    environment: ${{ (github.event_name == 'workflow_dispatch' && inputs.beta) && 'Beta' || endsWith(github.ref_name, '-beta') && 'Beta' || 'Prod' }}
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || endsWith(github.ref_name, '-beta') && 'Beta' || 'Prod' }}
 
     env:
       PUBLISHER: komandio-labs
@@ -39,7 +43,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # Manual run: read version from manifest, no tag parsing needed
             EXTENSION="${{ inputs.extension }}"
-            ENV="${{ inputs.beta == 'true' && 'beta' || 'prod' }}"
+            ENV="${{ inputs.environment == 'Beta' && 'beta' || 'prod' }}"
             MANIFEST="extensions/${PUBLISHER}/${EXTENSION}/manifest.json"
 
             if [ ! -f "${MANIFEST}" ]; then
