@@ -1,4 +1,5 @@
 {
+  "minimumDependencyAge": 0,
   "imports": {
     "std/": "jsr:@std/",
     "@komandio/sdk": "jsr:@komandio/sdk@1.0.0",
