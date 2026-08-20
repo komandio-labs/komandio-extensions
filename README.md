@@ -13,24 +13,48 @@ The ecosystem is designed to be language-agnostic. Currently, we offer full supp
 - **Web SDK (@komandio/sdk)**: A Deno-native, TypeScript-first toolkit for building lightweight, isolated extensions using TC39 decorators and the Deno runtime. No .NET dependencies are required for development.
 - **.NET SDK**: (Coming Soon) Support for building performance-critical native extensions with deep OS integration.
 
+## Publishing official extensions
+
+## Public Deno SDK
+
+`packages/komandio-sdk` is the canonical source of the public Deno SDK. It is published to JSR as `@komandio/sdk` from `sdk-vX.Y.Z` tags using GitHub OIDC; no publishing secret is stored in GitHub. Community developers consume it with `jsr:@komandio/sdk@^X.Y.Z`.
+
+Official extensions are built from this repository and distributed through the signed Komandio catalog at `https://extensions.komandio.com/catalog.json`. They are not bundled into the Komandio installer: the app retrieves the catalog, verifies its signature, and then lets users install a selected version.
+
+Create a release tag only after the tagged commit is merged into `main`:
+
+```text
+spotify-v1.2.0
+```
+
+The workflow tests every official extension, builds the tagged extension, signs its immutable `.kxt` package, uploads it under `packages/komandio-labs/spotify/1.2.0/`, and updates the signed common catalog. It has no dependency on the retired Komandio backend.
+
+The repository requires these GitHub Actions secrets:
+
+- `R2_ACCOUNT_ID`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET_NAME`
+- `EXTENSIONS_SIGNING_KEY_BASE64`
+
 ## 📂 Repository Structure
-We use a unified monorepo structure to ensure consistency across different SDK versions and extensions.
 
 ```text
 komandio-extensions/
-├── packages/
-│   ├── web-sdk/                # Deno/TypeScript SDK source
-│   └── dotnet-sdk/             # (Future) .NET C# SDK source
-├── extensions/
-│   ├── komandio-labs/          # Official extensions maintained by Komandio Labs
-│   │   ├── web/                # Official Web-based extensions
-│   │   └── dotnet/             # (Future) Official Native extensions
-│   └── community/              # Community-contributed extensions
-│       ├── web/                # Community Web extensions
-│       └── dotnet/             # (Future) Community Native extensions
-├── tools/
-│   └── kext-cli/               # The 'kext' CLI for scaffolding and building
-└── README.md
+├── extensions/komandio-labs/  # Official extension source
+├── packages/komandio-sdk/     # Public, self-contained Deno SDK
+├── keys/                      # Public verification key only
+├── tools/                     # Build and development tools
+└── .github/workflows/         # Test and signed R2 publication
+```
+
+The R2 distribution hierarchy is deliberately separate from the repository:
+
+```text
+extensions.komandio.com/
+├── catalog.json
+├── catalog.signature.json
+└── packages/komandio-labs/<extension>/<version>/<publisher>.<extension>-<version>.kxt
 ```
 
 ## 🛡️ Extension Categories

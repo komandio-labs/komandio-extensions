@@ -1,190 +1,171 @@
-name: Publish Official Extension
+name: Validate and Publish Official Extensions
 
 on:
+  pull_request:
+    branches: [main]
   push:
-    tags:
-      - '*-v*'        # prod:  spotify-v1.2.0
-      - '*-v*-beta'   # beta:  spotify-v1.2.0-beta
+    branches: [main]
+    tags: ['*-v*']
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Target environment'
-        type: choice
-        options:
-          - Beta
-          - Prod
-        default: Beta
-        required: true
       extension:
-        description: 'Extension name (e.g. spotify)'
+        description: 'Extension name, for example spotify'
         required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
-  publish:
-    name: Build, Pack & Publish
+  validate:
+    name: Validate extensions
     runs-on: ubuntu-latest
-    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || endsWith(github.ref_name, '-beta') && 'Beta' || 'Prod' }}
-
-    env:
-      PUBLISHER: komandio-labs
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
+      - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
-      - name: Parse inputs
-        id: tag
+      - name: Test every official extension
+        run: deno task test
+
+      - name: Build every official extension
+        run: deno task build-all
+
+  publish:
+    name: Build, sign and publish
+    needs: validate
+    if: (startsWith(github.ref, 'refs/tags/') && !startsWith(github.ref_name, 'sdk-v')) || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      PUBLISHER: komandio-labs
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_ENDPOINT_URL: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      EXTENSIONS_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      EXTENSIONS_PUBLIC_BASE_URL: https://extensions.komandio.com
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Resolve and validate the release
+        id: release
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # Manual run: read version from manifest, no tag parsing needed
-            EXTENSION="${{ inputs.extension }}"
-            ENV="${{ inputs.environment == 'Beta' && 'beta' || 'prod' }}"
-            MANIFEST="extensions/${PUBLISHER}/${EXTENSION}/manifest.json"
-
-            if [ ! -f "${MANIFEST}" ]; then
-              echo "❌ manifest.json not found for extension: ${EXTENSION}"
-              exit 1
-            fi
-
-            VERSION=$(jq -r '.version' "${MANIFEST}")
+            extension='${{ inputs.extension }}'
+            manifest="extensions/$PUBLISHER/$extension/manifest.json"
+            version=$(jq -r '.version' "$manifest")
           else
-            # Tag push: parse extension + version from tag, then validate against manifest
-            TAG="${{ github.ref_name }}"
-
-            if [[ "${TAG}" == *-beta ]]; then
-              ENV="beta"
-              TAG_BASE="${TAG%-beta}"
-            else
-              ENV="prod"
-              TAG_BASE="${TAG}"
-            fi
-
-            EXTENSION="${TAG_BASE%-v*}"
-            VERSION="${TAG_BASE##*-v}"
-            MANIFEST="extensions/${PUBLISHER}/${EXTENSION}/manifest.json"
-
-            if [ ! -f "${MANIFEST}" ]; then
-              echo "❌ manifest.json not found for extension: ${EXTENSION}"
-              exit 1
-            fi
-
-            MANIFEST_VERSION=$(jq -r '.version' "${MANIFEST}")
-            if [ "${VERSION}" != "${MANIFEST_VERSION}" ]; then
-              echo "❌ Tag version (${VERSION}) does not match manifest version (${MANIFEST_VERSION})"
-              exit 1
-            fi
+            tag="${GITHUB_REF_NAME}"
+            extension="${tag%-v*}"
+            version="${tag##*-v}"
+            manifest="extensions/$PUBLISHER/$extension/manifest.json"
+            git fetch origin main
+            git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           fi
 
-          SLUG="${PUBLISHER}.${EXTENSION}"
+          test -f "$manifest"
+          test "$(jq -r '.version' "$manifest")" = "$version"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+          echo "extension=$extension" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
-          echo "env=${ENV}"                      >> $GITHUB_OUTPUT
-          echo "extension=${EXTENSION}"          >> $GITHUB_OUTPUT
-          echo "version=${VERSION}"              >> $GITHUB_OUTPUT
-          echo "slug=${SLUG}"                    >> $GITHUB_OUTPUT
-          echo "filename=${SLUG}-${VERSION}.kxt" >> $GITHUB_OUTPUT
-
-          echo "Parsed: env=${ENV} extension=${EXTENSION} version=${VERSION}"
-
-      - name: Build extension
+      - name: Build and stamp the extension
+        shell: bash
         run: |
-          EXT_DIR="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}"
+          extension='${{ steps.release.outputs.extension }}'
+          directory="extensions/$PUBLISHER/$extension"
+          (cd "$directory" && deno run -A ../../../tools/komander-cli/komander.ts build -o dist/)
+          jq --arg id "$PUBLISHER" --arg name 'Komandio Labs' \
+            '.publisher = {id: $id, type: "official", displayName: $name}' \
+            "$directory/dist/manifest.json" > "$directory/dist/manifest.stamped.json"
+          mv "$directory/dist/manifest.stamped.json" "$directory/dist/manifest.json"
 
-          cd "${EXT_DIR}"
-          deno run -A ../../../tools/komander-cli/komander.ts build -o dist/
-
-      - name: Stamp publisher identity
-        run: |
-          MANIFEST="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}/dist/manifest.json"
-
-          jq \
-            --arg pub_id "${PUBLISHER}" \
-            --arg pub_type "official" \
-            --arg pub_name "Komandio Labs" \
-            '.publisher = {id: $pub_id, type: $pub_type, displayName: $pub_name}' \
-            "${MANIFEST}" > /tmp/manifest.patched.json
-
-          mv /tmp/manifest.patched.json "${MANIFEST}"
-          echo "✅ Publisher stamped: $(jq -c '.publisher' "${MANIFEST}")"
-
-      - name: Pack extension
-        run: |
-          EXT_DIR="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}"
-          FILENAME="${{ steps.tag.outputs.filename }}"
-
-          cd "${EXT_DIR}/dist"
-          zip -r "../${FILENAME}" .
-          echo "✅ Packed: ${FILENAME}"
-
-      - name: Hash & sign
-        run: |
-          EXT_DIR="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}"
-          FILENAME="${{ steps.tag.outputs.filename }}"
-          KXT="${EXT_DIR}/${FILENAME}"
-
-          # SHA-256 hash (hex)
-          ARCHIVE_HASH=$(sha256sum "${KXT}" | awk '{print $1}')
-          echo "ARCHIVE_HASH=${ARCHIVE_HASH}" >> $GITHUB_ENV
-          echo "✅ Hash: ${ARCHIVE_HASH}"
-
-          # Decode private key from base64 secret
-          echo "${{ secrets.EXTENSIONS_SIGNING_KEY_BASE64 }}" | base64 -d > /tmp/signing.pem
-
-          # Sign the hash (binary DER signature → base64)
-          echo -n "${ARCHIVE_HASH}" | openssl dgst -sha256 -sign /tmp/signing.pem | base64 -w 0 > /tmp/signature.b64
-          ARCHIVE_SIGNATURE=$(cat /tmp/signature.b64)
-          echo "ARCHIVE_SIGNATURE=${ARCHIVE_SIGNATURE}" >> $GITHUB_ENV
-
-          # Clean up private key immediately
-          rm -f /tmp/signing.pem
-          echo "✅ Signed"
-
-      - name: Upload to Cloudflare R2
+      - name: Pack and sign the immutable extension archive
+        id: package
+        shell: bash
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
+          EXTENSIONS_SIGNING_KEY_BASE64: ${{ secrets.EXTENSIONS_SIGNING_KEY_BASE64 }}
         run: |
-          EXT_DIR="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}"
-          FILENAME="${{ steps.tag.outputs.filename }}"
-          VERSION="${{ steps.tag.outputs.version }}"
-          EXTENSION="${{ steps.tag.outputs.extension }}"
+          extension='${{ steps.release.outputs.extension }}'
+          version='${{ steps.release.outputs.version }}'
+          slug="$PUBLISHER.$extension"
+          directory="extensions/$PUBLISHER/$extension"
+          filename="$slug-$version.kxt"
+          (cd "$directory/dist" && zip -qr "../$filename" .)
+          hash=$(sha256sum "$directory/$filename" | awk '{print $1}')
+          printf '%s' "$EXTENSIONS_SIGNING_KEY_BASE64" | base64 -d > signing.pem
+          printf '%s' "$hash" | openssl dgst -sha256 -sign signing.pem | base64 -w 0 > signature.txt
+          rm -f signing.pem
+          echo "filename=$filename" >> "$GITHUB_OUTPUT"
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+          echo "signature=$(cat signature.txt)" >> "$GITHUB_OUTPUT"
 
-          R2_KEY="extensions/${PUBLISHER}/${EXTENSION}/${VERSION}/${FILENAME}"
-
-          aws s3 cp "${EXT_DIR}/${FILENAME}" "s3://${{ secrets.R2_BUCKET }}/${R2_KEY}" \
-            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
-
-          ARCHIVE_URL="${{ secrets.R2_PUBLIC_BASE_URL }}/${R2_KEY}"
-          echo "ARCHIVE_URL=${ARCHIVE_URL}" >> $GITHUB_ENV
-          echo "✅ Uploaded to: ${ARCHIVE_URL}"
-
-      - name: Publish metadata to backend
+      - name: Publish archive and signed catalog to R2
+        shell: bash
+        env:
+          EXTENSIONS_SIGNING_KEY_BASE64: ${{ secrets.EXTENSIONS_SIGNING_KEY_BASE64 }}
         run: |
-          MANIFEST="extensions/${PUBLISHER}/${{ steps.tag.outputs.extension }}/dist/manifest.json"
+          test -n "$EXTENSIONS_BUCKET"
+      test -n "${{ secrets.R2_ACCOUNT_ID }}"
+          extension='${{ steps.release.outputs.extension }}'
+          version='${{ steps.release.outputs.version }}'
+          filename='${{ steps.package.outputs.filename }}'
+          directory="extensions/$PUBLISHER/$extension"
+          package_key="packages/$PUBLISHER/$extension/$version/$filename"
+          archive_url="$EXTENSIONS_PUBLIC_BASE_URL/$package_key"
 
-          PAYLOAD=$(jq \
-            --arg url  "${ARCHIVE_URL}" \
-            --arg hash "${ARCHIVE_HASH}" \
-            --arg sig  "${ARCHIVE_SIGNATURE}" \
-            '. + {archiveUrl: $url, archiveHash: $hash, archiveSignature: $sig}' \
-            "${MANIFEST}")
-
-          HTTP_STATUS=$(curl -s -o /tmp/publish_response.json -w "%{http_code}" \
-            -X POST "${{ secrets.BACKEND_URL }}/internal/extensions/publish" \
-            -H "Content-Type: application/json" \
-            -H "X-Internal-Api-Key: ${{ secrets.BACKEND_INTERNAL_API_KEY }}" \
-            -d "${PAYLOAD}")
-
-          cat /tmp/publish_response.json
-
-          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
-            echo "❌ Publish failed with HTTP ${HTTP_STATUS}"
+          # Extension archives are immutable. A tag must never replace an
+          # existing package, otherwise installed clients could receive a
+          # different payload for the same signed version.
+          if aws s3api head-object --bucket "$EXTENSIONS_BUCKET" --key "$package_key" --endpoint-url "$AWS_ENDPOINT_URL" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing extension package: $package_key" >&2
             exit 1
           fi
+          aws s3 cp "$directory/$filename" "s3://$EXTENSIONS_BUCKET/$package_key" --endpoint-url "$AWS_ENDPOINT_URL" --no-progress
 
-          echo "✅ Published [${{ steps.tag.outputs.env }}]: ${{ steps.tag.outputs.slug }} v${{ steps.tag.outputs.version }}"
+          aws s3 cp "s3://$EXTENSIONS_BUCKET/catalog.json" catalog.json --endpoint-url "$AWS_ENDPOINT_URL" --no-progress 2>/dev/null || echo '{"schemaVersion":1,"extensions":[]}' > catalog.json
+          jq --arg publisher "$PUBLISHER" --arg id "$extension" --arg version "$version" \
+             --arg url "$archive_url" --arg hash '${{ steps.package.outputs.hash }}' --arg signature '${{ steps.package.outputs.signature }}' \
+             --slurpfile manifest "$directory/dist/manifest.json" \
+             '
+               . as $catalog
+               | ($manifest[0]) as $manifest
+               | ([($catalog.extensions // [])[] | select(.publisher.id == $publisher and .id == $id)] | first) as $existing
+               | ($existing.versions // []) as $versions
+               | ($manifest + {
+                   versions: (
+                     [ $versions[] | select(.version != $version) ]
+                     + [{ version: $version, archiveUrl: $url, archiveHash: $hash, archiveSignature: $signature, publishedAt: (now | todateiso8601) }]
+                     | sort_by(.version)
+                   )
+                 }) as $updated
+               | {
+                   schemaVersion: 1,
+                   generatedAt: (now | todateiso8601),
+                   extensions: (
+                     [($catalog.extensions // [])[] | select(.publisher.id != $publisher or .id != $id)]
+                     + [$updated]
+                     | sort_by(.publisher.id, .id)
+                   )
+                 }
+             ' catalog.json > catalog.next.json
+          mv catalog.next.json catalog.json
+
+          catalog_hash=$(sha256sum catalog.json | awk '{print $1}')
+          printf '%s' "$EXTENSIONS_SIGNING_KEY_BASE64" | base64 -d > signing.pem
+          printf '%s' "$catalog_hash" | openssl dgst -sha256 -sign signing.pem | base64 -w 0 > catalog.signature
+          rm -f signing.pem
+          jq -n --arg hash "$catalog_hash" --arg signature "$(cat catalog.signature)" '{algorithm:"ECDSA-SHA256",hash:$hash,signature:$signature}' > catalog.signature.json
+          aws s3 cp catalog.json "s3://$EXTENSIONS_BUCKET/catalog.json" --endpoint-url "$AWS_ENDPOINT_URL" --no-progress
+          aws s3 cp catalog.signature.json "s3://$EXTENSIONS_BUCKET/catalog.signature.json" --endpoint-url "$AWS_ENDPOINT_URL" --no-progress

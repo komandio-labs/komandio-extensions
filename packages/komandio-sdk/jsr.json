@@ -1,0 +1,19 @@
+{
+  "name": "@komandio/sdk",
+  "version": "1.0.0",
+  "description": "The public TypeScript and Deno SDK for Komandio extensions.",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./deno/mod.ts",
+    "./fuzzy": "./fuzzy/levenshtein.ts"
+  },
+  "publish": {
+    "include": [
+      "core/**/*.ts",
+      "deno/**/*.ts",
+      "fuzzy/**/*.ts",
+      "README.md",
+      "jsr.json"
+    ]
+  }
+}
