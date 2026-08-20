@@ -117,7 +117,7 @@ jobs:
           EXTENSIONS_SIGNING_KEY_BASE64: ${{ secrets.EXTENSIONS_SIGNING_KEY_BASE64 }}
         run: |
           test -n "$EXTENSIONS_BUCKET"
-      test -n "${{ secrets.R2_ACCOUNT_ID }}"
+          test -n "${{ secrets.R2_ACCOUNT_ID }}"
           extension='${{ steps.release.outputs.extension }}'
           version='${{ steps.release.outputs.version }}'
           filename='${{ steps.package.outputs.filename }}'

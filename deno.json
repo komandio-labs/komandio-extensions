@@ -1,8 +1,8 @@
 {
   "imports": {
     "std/": "jsr:@std/",
-    "@komandio/sdk": "./packages/komandio-sdk/deno/mod.ts",
-    "@komandio/sdk/fuzzy": "./packages/komandio-sdk/fuzzy/levenshtein.ts"
+    "@komandio/sdk": "jsr:@komandio/sdk@1.0.0",
+    "@komandio/sdk/fuzzy": "jsr:@komandio/sdk@1.0.0/fuzzy"
   },
   "tasks": {
     "test": "deno test --allow-read --allow-write --allow-env --no-check extensions/",
