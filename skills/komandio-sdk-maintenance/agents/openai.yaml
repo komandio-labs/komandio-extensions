@@ -1,0 +1,4 @@
+interface:
+  display_name: "Komandio SDK Maintenance"
+  short_description: "Safely update and release the Komandio SDK"
+  default_prompt: "Use $komandio-sdk-maintenance to plan or update the Komandio SDK without publishing until approved."

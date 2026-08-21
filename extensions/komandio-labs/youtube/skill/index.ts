@@ -84,6 +84,8 @@ export default class YouTubeSkill {
 
           case "stop":
             await Komandio.ui.updateOverlay(overlayId, {}, "Stop");
+            await Komandio.storage.saveSetting("last_played_query", ""); // Clear state
+            await Komandio.ui.closeOverlay(overlayId);
             return Result.ok();
 
           case "next":

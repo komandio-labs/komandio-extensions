@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "experimentalDecorators": true
+  },
+  "imports": {
+    "std/": "jsr:@std/",
+    "@komandio/sdk": "./packages/komandio-sdk/deno/mod.ts",
+    "@komandio/sdk/fuzzy": "./packages/komandio-sdk/fuzzy/levenshtein.ts"
+  }
+}

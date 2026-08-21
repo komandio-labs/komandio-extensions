@@ -6,6 +6,7 @@ const scriptDir = dirname(fromFileUrl(import.meta.url));
 const repoRoot = resolve(scriptDir, "..");
 const extensionsRoot = join(repoRoot, "extensions");
 const komander = join(scriptDir, "komander-cli", "komander.ts");
+const sdkDevConfig = Deno.env.get("KOMANDIO_DENO_CONFIG");
 
 interface Result {
     path: string;
@@ -30,7 +31,13 @@ for await (const publisher of Deno.readDir(extensionsRoot)) {
         console.log(`\n▶ Building ${label}...`);
 
         const cmd = new Deno.Command(Deno.execPath(), {
-            args: ["run", "-A", komander, "build"],
+            args: [
+                "run",
+                "-A",
+                ...(sdkDevConfig ? ["--config", sdkDevConfig] : []),
+                komander,
+                "build"
+            ],
             cwd: extPath,
             stdout: "piped",
             stderr: "piped",

@@ -5,7 +5,8 @@ Thank you for helping improve Komandio's extension ecosystem.
 ## Before you start
 
 - Search existing issues before opening a new one.
-- For a new extension, open an extension proposal issue first so its purpose, permissions, and maintenance owner can be reviewed.
+- For a new extension, open an extension proposal issue first so its purpose, permissions, external dependencies, and maintenance expectations can be reviewed.
+- Komandio Labs operates a curated catalogue. Community members may propose extensions, report bugs, and submit focused pull requests, but Komandio Labs is the sole publisher and signer of catalogue extensions.
 - Never include secrets, private keys, OAuth refresh tokens, or personal data in an issue, pull request, test fixture, or commit.
 
 ## Local workflow
@@ -17,13 +18,13 @@ deno task test
 deno task build-all
 ```
 
-Use the published SDK in new code:
+Use the SDK alias resolved by the repository import map. Do not add a direct JSR version to an extension:
 
 ```ts
-import { Komandio, Result, Skill, Tool } from "jsr:@komandio/sdk@^1.0.0";
+import { Komandio, Result, Skill, Tool } from "@komandio/sdk";
 ```
 
-An extension belongs in `extensions/<publisher-id>/<extension-id>/`. Keep the manifest accurate, declare the smallest permission set, and add tests for behavior that can fail without Komandio running.
+An accepted extension belongs in `extensions/komandio-labs/<extension-id>/`. Keep the manifest accurate, declare the smallest permission set, and add tests for behavior that can fail without Komandio running. A contributor can be credited in the manifest and documentation, but the published extension identity remains `komandio-labs`.
 
 ## Pull requests
 
@@ -33,4 +34,4 @@ Changes to `packages/komandio-sdk` must preserve compatibility within the curren
 
 ## Maintainer releases
 
-See [docs/RELEASING.md](docs/RELEASING.md). Contributors propose changes through pull requests; only trusted maintainers create release tags and publish official packages.
+See [docs/RELEASING.md](docs/RELEASING.md). Contributors propose changes through issues and pull requests; only authorized Komandio Labs maintainers create release tags and publish signed packages.

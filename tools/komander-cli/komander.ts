@@ -146,9 +146,8 @@ async function performBuild(outDir: string | undefined) {
     const absOutDir = resolvedOutDir;
     await Deno.mkdir(absOutDir, { recursive: true });
 
-    // Determine path to SDK for metadata extraction
-    const scriptDir = fromFileUrl(import.meta.url);
-    const sdkPath = resolve(dirname(scriptDir), "../../packages/web-sdk/src/deno/mod.ts");
+    // Config for both metadata extraction and esbuild — contains the correct @komandio/sdk import map
+    const denoConfigPath = resolve(dirname(fromFileUrl(import.meta.url)), "../../deno.json");
 
     const isSkillDir   = (name: string) => name === "skill"   || name.endsWith(".skill");
     const isServiceDir = (name: string) => name === "service" || name.endsWith(".service");
@@ -176,7 +175,6 @@ async function performBuild(outDir: string | undefined) {
             if (isSkillDir(entry.name)) {
                 try {
                     const sourceEntryUrl = toFileUrl(resolve(entryFile)).href;
-                    const sdkUrl = toFileUrl(sdkPath).href;
                     const code = `
                         const module = await import("${sourceEntryUrl}");
                         const TargetClass = module.default;
@@ -203,7 +201,7 @@ async function performBuild(outDir: string | undefined) {
                                 }
                             };
                         });
-                        
+
                         const rawMeta = TargetClass._komandio_metadata || {};
                         const meta = {
                             category: rawMeta.category || "generic",
@@ -214,26 +212,22 @@ async function performBuild(outDir: string | undefined) {
                         };
                         console.log("META_START" + JSON.stringify(meta) + "META_END");
                     `;
-                    
+
                     const tempScript = await Deno.makeTempFile({ suffix: ".ts" });
-                    const tempImportMap = await Deno.makeTempFile({ suffix: ".json" });
-                    
                     await Deno.writeTextFile(tempScript, code);
-                    await Deno.writeTextFile(tempImportMap, JSON.stringify({
-                        imports: { "@komandio/sdk": sdkUrl }
-                    }));
-                    
+
                     const command = new Deno.Command(Deno.execPath(), {
-                        args: ["run", "-A", "--import-map", tempImportMap, "--no-check", tempScript],
+                        args: ["run", "-A", "--config", denoConfigPath, "--no-check", tempScript],
                         stdout: "piped",
                         stderr: "piped"
                     });
-                    
-                    const { stdout } = await command.output();
+
+                    const { stdout, stderr } = await command.output();
                     await Deno.remove(tempScript);
-                    await Deno.remove(tempImportMap);
-                    
+
                     const output = new TextDecoder().decode(stdout);
+                    const errOutput = new TextDecoder().decode(stderr);
+                    if (errOutput) console.warn(`    ⚠️  Metadata subprocess stderr: ${errOutput}`);
                     const match = output.match(/META_START(.*)META_END/);
                     if (match) {
                         manifest.skill = JSON.parse(match[1]);
@@ -243,8 +237,6 @@ async function performBuild(outDir: string | undefined) {
                     console.warn(`    ⚠️  Metadata extraction failed: ${e.message}`);
                 }
             }
-
-            const denoConfigPath = resolve(dirname(fromFileUrl(import.meta.url)), "../../deno.json");
 
             let bundleOk = false;
             try {
@@ -271,7 +263,7 @@ async function performBuild(outDir: string | undefined) {
             if (bundleOk) {
                 // Copy any non-TypeScript supporting files (assets, JSON, etc.)
                 for await (const file of Deno.readDir(entry.name)) {
-                    if (file.isFile && !file.name.endsWith(".ts")) {
+                    if (file.isFile && !file.name.endsWith(".ts") && !file.name.endsWith(".js") && !file.name.endsWith(".js.map")) {
                         await Deno.copyFile(
                             join(entry.name, file.name),
                             join(componentOutDir, file.name)

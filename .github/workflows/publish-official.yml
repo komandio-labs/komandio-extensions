@@ -7,11 +7,6 @@ on:
     branches: [main]
     tags: ['*-v*']
   workflow_dispatch:
-    inputs:
-      extension:
-        description: 'Extension name, for example spotify'
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -38,7 +33,7 @@ jobs:
   publish:
     name: Build, sign and publish
     needs: validate
-    if: (startsWith(github.ref, 'refs/tags/') && !startsWith(github.ref_name, 'sdk-v')) || github.event_name == 'workflow_dispatch'
+    if: startsWith(github.ref, 'refs/tags/') && !startsWith(github.ref_name, 'sdk-v')
     runs-on: ubuntu-latest
     env:
       PUBLISHER: komandio-labs
@@ -61,18 +56,12 @@ jobs:
         id: release
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            extension='${{ inputs.extension }}'
-            manifest="extensions/$PUBLISHER/$extension/manifest.json"
-            version=$(jq -r '.version' "$manifest")
-          else
-            tag="${GITHUB_REF_NAME}"
-            extension="${tag%-v*}"
-            version="${tag##*-v}"
-            manifest="extensions/$PUBLISHER/$extension/manifest.json"
-            git fetch origin main
-            git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-          fi
+          tag="${GITHUB_REF_NAME}"
+          extension="${tag%-v*}"
+          version="${tag##*-v}"
+          manifest="extensions/$PUBLISHER/$extension/manifest.json"
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
 
           test -f "$manifest"
           test "$(jq -r '.version' "$manifest")" = "$version"
