@@ -2,7 +2,7 @@
 
 The official home for the Komandio SDK and Extension Library.
 
-[Komandio website](https://komandio.com) · [Join the Discord community](https://discord.gg/NQ38d9jVnt)
+[Komandio website](https://www.komandio.com) · [Join the Discord community](https://discord.gg/NQ38d9jVnt)
 
 This repository provides the SDK, extension source, and contribution standards that power Komandio's voice-activated automation experience for gaming and productivity workflows.
 
