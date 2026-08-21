@@ -1,0 +1,4 @@
+interface:
+  display_name: "Komandio Extension Authoring"
+  short_description: "Build and validate Komandio extensions"
+  default_prompt: "Use $komandio-extension-authoring to create or improve a Komandio extension."

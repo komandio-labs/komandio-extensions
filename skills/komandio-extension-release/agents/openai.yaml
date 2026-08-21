@@ -1,0 +1,4 @@
+interface:
+  display_name: "Komandio Extension Release"
+  short_description: "Version and publish signed extensions"
+  default_prompt: "Use $komandio-extension-release to prepare a safe Komandio extension release."

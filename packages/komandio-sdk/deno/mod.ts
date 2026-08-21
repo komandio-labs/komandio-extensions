@@ -6,8 +6,8 @@ export { ToolErrorCategory };
 export type ToolResult<T = unknown> = { value: T | null; hasError: boolean; category?: ToolErrorCategory; };
 export const Result = {
     ok: <T>(value: T | null = null): ToolResult<T> => ({ value, hasError: false, category: ToolErrorCategory.None }),
-    error: (value: unknown, category: ToolErrorCategory = ToolErrorCategory.General): ToolResult<unknown> => ({ value, hasError: true, category }),
-    fail: (value: unknown, category: ToolErrorCategory = ToolErrorCategory.General): ToolResult<unknown> => ({ value, hasError: true, category })
+    error: <T = string>(value: T, category: ToolErrorCategory = ToolErrorCategory.General): ToolResult<T> => ({ value, hasError: true, category }),
+    fail: <T = string>(value: T, category: ToolErrorCategory = ToolErrorCategory.General): ToolResult<T> => ({ value, hasError: true, category })
 };
 
 export const Komandio = {

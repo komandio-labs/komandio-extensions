@@ -1,0 +1,32 @@
+name: Bug report
+description: Report reproducible SDK or extension behavior.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Never include credentials, API keys, or private data."
+  - type: input
+    id: extension
+    attributes:
+      label: Extension and version
+      placeholder: komandio-labs.spotify 1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and relevant logs
+      description: Remove secrets and personal information before pasting logs.

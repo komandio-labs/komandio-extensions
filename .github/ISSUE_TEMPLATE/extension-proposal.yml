@@ -1,0 +1,31 @@
+name: Extension proposal
+description: Propose a new Komandio extension before implementation.
+title: "[Extension]: "
+labels: [extension-proposal]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Proposed publisher and extension ID
+      placeholder: example-labs.my-extension
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem and intended commands
+    validations:
+      required: true
+  - type: textarea
+    id: permissions
+    attributes:
+      label: Required permissions and why
+      description: List every network, filesystem, service, overlay, or secret permission.
+    validations:
+      required: true
+  - type: textarea
+    id: maintenance
+    attributes:
+      label: Maintenance owner and external dependencies
+    validations:
+      required: true

@@ -91,6 +91,16 @@ jobs:
             "$directory/dist/manifest.json" > "$directory/dist/manifest.stamped.json"
           mv "$directory/dist/manifest.stamped.json" "$directory/dist/manifest.json"
 
+      - name: Verify package manifest contains AI tool metadata
+        shell: bash
+        run: |
+          extension='${{ steps.release.outputs.extension }}'
+          manifest="extensions/$PUBLISHER/$extension/dist/manifest.json"
+          if jq -e '.entry.skill? != null and ((.skill.tools? | type) != "array" or (.skill.tools | length) == 0)' "$manifest" >/dev/null; then
+            echo "A skill extension must publish non-empty .skill.tools metadata: $manifest" >&2
+            exit 1
+          fi
+
       - name: Pack and sign the immutable extension archive
         id: package
         shell: bash

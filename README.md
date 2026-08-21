@@ -19,6 +19,15 @@ The ecosystem is designed to be language-agnostic. Currently, we offer full supp
 
 `packages/komandio-sdk` is the canonical source of the public Deno SDK. It is published to JSR as `@komandio/sdk` from `sdk-vX.Y.Z` tags using GitHub OIDC; no publishing secret is stored in GitHub. Community developers consume it with `jsr:@komandio/sdk@^X.Y.Z`.
 
+## Community contribution
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md), then use the repository's AI skills when working with a compatible coding agent:
+
+- [`skills/komandio-extension-authoring`](skills/komandio-extension-authoring/) for creating, testing, or changing an extension.
+- [`skills/komandio-extension-release`](skills/komandio-extension-release/) for semantic versioning and trusted publication.
+
+Maintainers should follow [docs/RELEASING.md](docs/RELEASING.md). Security reports belong in the private path described in [SECURITY.md](SECURITY.md), never in a public issue.
+
 Official extensions are built from this repository and distributed through the signed Komandio catalog at `https://extensions.komandio.com/catalog.json`. They are not bundled into the Komandio installer: the app retrieves the catalog, verifies its signature, and then lets users install a selected version.
 
 Create a release tag only after the tagged commit is merged into `main`:

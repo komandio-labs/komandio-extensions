@@ -24,7 +24,9 @@ jobs:
           deno-version: v2.x
       - name: Verify package contents and types
         working-directory: packages/komandio-sdk
-        run: deno publish --dry-run
+        run: |
+          deno check tests/result-types.ts
+          deno publish --dry-run
 
   publish:
     name: Publish to JSR

@@ -1,6 +1,6 @@
 {
   "name": "@komandio/sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "The public TypeScript and Deno SDK for Komandio extensions.",
   "license": "Apache-2.0",
   "exports": {
