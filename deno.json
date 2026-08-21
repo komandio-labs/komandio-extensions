@@ -2,8 +2,8 @@
   "minimumDependencyAge": 0,
   "imports": {
     "std/": "jsr:@std/",
-    "@komandio/sdk": "jsr:@komandio/sdk@1.0.0",
-    "@komandio/sdk/fuzzy": "jsr:@komandio/sdk@1.0.0/fuzzy"
+    "@komandio/sdk": "jsr:@komandio/sdk@1.0.1",
+    "@komandio/sdk/fuzzy": "jsr:@komandio/sdk@1.0.1/fuzzy"
   },
   "tasks": {
     "test": "deno test --allow-read --allow-write --allow-env --no-check extensions/",
